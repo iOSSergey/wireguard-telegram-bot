@@ -1,0 +1,15 @@
+[Interface]
+# VPN server address
+Address = 10.8.0.1/24
+
+# WireGuard listen port
+ListenPort = 51820
+
+# Server private key (REPLACE THIS)
+PrivateKey = <SERVER_PRIVATE_KEY>
+
+# Optional NAT rules (uncomment if needed)
+# PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
+# Peers are managed dynamically by the Telegram bot
