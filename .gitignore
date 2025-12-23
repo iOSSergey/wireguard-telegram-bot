@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Databases
+*.db
+
+# WireGuard
+*.key
+*.conf
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
