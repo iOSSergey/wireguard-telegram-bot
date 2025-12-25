@@ -102,6 +102,43 @@ def set_enabled(telegram_id: int, enabled: bool):
     conn.close()
 
 
+def get_peers_for_restore(now_ts: int):
+    """Return peers that should be active in WireGuard right now.
+
+    Восстанавливаем только те peer'ы, которые помечены как enabled в БД
+    и при этом ещё не истекли по expires_at.
+    """
+    conn = get_db()
+    cur = conn.execute(
+        """SELECT * FROM peers
+        WHERE enabled = 1
+          AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY id
+        """,
+        (now_ts,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def get_expired_peers(now_ts: int):
+    """Return peers that should be disabled because they expired."""
+    conn = get_db()
+    cur = conn.execute(
+        """SELECT * FROM peers
+        WHERE enabled = 1
+          AND expires_at IS NOT NULL
+          AND expires_at <= ?
+        ORDER BY id
+        """,
+        (now_ts,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 def get_next_ip(subnet_prefix: str = "10.8.0.") -> str:
     """
     Allocate next IP strictly based on DB state.
