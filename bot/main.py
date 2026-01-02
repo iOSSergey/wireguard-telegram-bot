@@ -44,11 +44,11 @@ else:
 
 BOT_NAME = os.getenv("BOT_NAME", "VPN Bot")
 
-# пока не используем, но сохраняем на будущее
 WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
 
-# поддержка (может быть пусто)
 SUPPORT_TG_USERNAME = os.getenv("SUPPORT_TG_USERNAME")
+
+INSTALL_GUIDE_URL = os.getenv("INSTALL_GUIDE_URL")
 
 
 # ===== Helpers =====
@@ -152,7 +152,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻 Нажми /vpn чтобы начать."
+        "🔻 Нажми <b>/vpn</b> чтобы начать."
     )
 
     await update.message.reply_text(
@@ -160,6 +160,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=main_keyboard(update.effective_user.id),
     )
+
 
 # ===== Placeholder helpers =====
 
@@ -178,12 +179,11 @@ async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if INSTALL_GUIDE_URL:
         await update.callback_query.message.reply_text(
-            f"📡 Подробные инструкции по установке:\n{INSTALL_GUIDE_URL}"
+            f"📡 Подробные инструкции:\n{INSTALL_GUIDE_URL}"
         )
     else:
         await update.callback_query.message.reply_text(
-            "Инструкции пока недоступны.\n"
-            "Администратор ещё не добавил ссылку."
+            "Инструкции пока недоступны."
         )
 
 
@@ -243,9 +243,10 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename=filename,
         caption="✅ Ваш конфигурационный файл WireGuard.",
         reply_markup=InlineKeyboardMarkup([
-	      [InlineKeyboardButton("📡 Как установить", callback_data="how_install")]
+            [InlineKeyboardButton("📡 Как установить", callback_data="how_install")]
         ]),
     )
+
 
 async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -301,10 +302,13 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         document=config.encode(),
         filename=filename,
         caption="✅ Ваш конфигурационный файл WireGuard.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📡 Как установить", callback_data="how_install")]
+        ]),
     )
 
 
-# ===== Admin (пока простой placeholder) =====
+# ===== Admin (placeholder) =====
 
 async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
