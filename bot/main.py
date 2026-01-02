@@ -42,8 +42,9 @@ if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
 else:
     ADMIN_TG_ID = None
 
-# only image — no titles/bodies in env
-WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
+BOT_NAME = os.getenv("BOT_NAME", "VPN Bot")
+
+WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")  # пока не используем, но оставляем
 
 
 # ===== Helpers =====
@@ -113,42 +114,75 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
 
 # ===== Keyboards =====
 
-def main_keyboard():
-    return InlineKeyboardMarkup([
+def main_keyboard(user_id: int | None = None):
+    buttons = [
+        [InlineKeyboardButton("➡️ Следующий", callback_data="next")],
         [InlineKeyboardButton("🔐 Получить доступ", callback_data="get_access")],
         [InlineKeyboardButton("ℹ️ Проверить доступ", callback_data="check_access")],
-    ])
+        [InlineKeyboardButton("📡 Как подключиться", callback_data="how_connect")],
+        [InlineKeyboardButton("🤝 Поддержка", callback_data="support")],
+    ]
+
+    if user_id and is_admin(user_id):
+        buttons.append(
+            [InlineKeyboardButton("🛠 Администрирование", callback_data="admin_panel")]
+        )
+
+    return InlineKeyboardMarkup(buttons)
 
 
 # ===== Handlers =====
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Нейтральное приветствие.
-    Названия сервиса нет. Картинка — только если указана в .env.
-    """
-
     text = (
-        "👋 Добро пожаловать!\n\n"
-        "Этот бот поможет вам получить доступ и управлять подключением.\n\n"
-        "👉 Нажмите кнопку ниже или отправьте /start ещё раз, чтобы продолжить."
+        f"👋 Привет! Я <b>{BOT_NAME}</b> — помогу настроить твой VPN.\n\n"
+        "<b>Что я умею:</b>\n"
+        "• сделать защищённый VPN-канал\n"
+        "• выдать конфигурацию WireGuard\n"
+        "• помочь подключиться\n\n"
+        "🔻\n"
+        "Нажмите <b>/vpn</b> или используйте кнопки ниже."
     )
 
-    # если указана картинка — показываем её
-    if WELCOME_IMAGE_URL:
-        await update.message.reply_photo(
-            photo=WELCOME_IMAGE_URL,
-            caption=text,
-            parse_mode="HTML",
-            reply_markup=main_keyboard(),
-        )
-    else:
-        await update.message.reply_text(
-            text=text,
-            parse_mode="HTML",
-            reply_markup=main_keyboard(),
-        )
+    await update.message.reply_text(
+        text=text,
+        parse_mode="HTML",
+        reply_markup=main_keyboard(update.effective_user.id),
+    )
 
+
+# === Универсальный placeholder ===
+
+PLACEHOLDER = "Этот раздел дорабатывается.\nПожалуйста, обратитесь в поддержку."
+
+
+async def on_next(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_how_connect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if not is_admin(query.from_user.id):
+        await query.message.reply_text("⛔ Доступ запрещён.")
+        return
+
+    await query.message.reply_text(PLACEHOLDER)
+
+
+# === Действующие разделы ===
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -210,7 +244,32 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(text)
 
 
-# ===== Admin commands =====
+# === /vpn команда ===
+
+async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    name = user.full_name or user.username or "client"
+
+    try:
+        config = get_or_create_peer_and_config(
+            telegram_id=user.id,
+            name=name,
+            ttl_days=30,
+        )
+    except ProvisionError as e:
+        await update.message.reply_text(f"❌ Доступ недоступен:\n{e}")
+        return
+
+    filename = f"{safe_filename(name)}.conf"
+
+    await update.message.reply_document(
+        document=config.encode(),
+        filename=filename,
+        caption="✅ Ваш конфигурационный файл WireGuard.",
+    )
+
+
+# ===== Main / Admin commands — оставляем как раньше (работают) =====
 
 async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
@@ -399,15 +458,22 @@ def main():
 
     restore_peers_on_startup()
 
+    # commands
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
-    app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
-
+    app.add_handler(CommandHandler("vpn", cmd_vpn))
     app.add_handler(CommandHandler("admin", admin_help))
     app.add_handler(CommandHandler("user", admin_user))
     app.add_handler(CommandHandler("block", admin_block))
     app.add_handler(CommandHandler("unblock", admin_unblock))
     app.add_handler(CommandHandler("extend", admin_extend))
+
+    # callbacks (кнопки)
+    app.add_handler(CallbackQueryHandler(on_next, pattern="^next$"))
+    app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
+    app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
+    app.add_handler(CallbackQueryHandler(on_how_connect, pattern="^how_connect$"))
+    app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
+    app.add_handler(CallbackQueryHandler(on_admin_panel, pattern="^admin_panel$"))
 
     if app.job_queue:
         app.job_queue.run_repeating(expire_peers_job, interval=60, first=10)
