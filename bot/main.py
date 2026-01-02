@@ -146,12 +146,13 @@ def main_keyboard(user_id: int | None = None):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
-        f"👋 Привет! Я <b>{BOT_NAME}</b> — помогу настроить твой VPN.\n\n"
-        "<b>Что я умею:</b>\n"
+        f"👋 Привет!\n"
+        f"Я <b>{BOT_NAME}</b> — помогу настроить твой VPN.\n\n"
+        "💠 Что я умею:\n"
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻 Нажмите <a href=\"tg://bot_command?command=vpn\"><b>Получить VPN</b></a>, чтобы начать."
+        "🔻 Нажми /vpn чтобы начать."
     )
 
     await update.message.reply_text(
@@ -159,7 +160,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=main_keyboard(update.effective_user.id),
     )
-
 
 # ===== Placeholder helpers =====
 
