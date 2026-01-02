@@ -175,7 +175,16 @@ PLACEHOLDER = make_placeholder()
 
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+    if INSTALL_GUIDE_URL:
+        await update.callback_query.message.reply_text(
+            f"📡 Подробные инструкции по установке:\n{INSTALL_GUIDE_URL}"
+        )
+    else:
+        await update.callback_query.message.reply_text(
+            "Инструкции пока недоступны.\n"
+            "Администратор ещё не добавил ссылку."
+        )
 
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
