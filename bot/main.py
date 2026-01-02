@@ -151,7 +151,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻 Нажмите «Получить VPN», чтобы начать"
+        "🔻 Нажмите /vpn или используйте кнопки, чтобы начать."
     )
 
     await update.message.reply_text(
@@ -233,8 +233,10 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         document=config.encode(),
         filename=filename,
         caption="✅ Ваш конфигурационный файл WireGuard.",
+        reply_markup=InlineKeyboardMarkup([
+	      [InlineKeyboardButton("📡 Как установить", callback_data="how_install")]
+        ]),
     )
-
 
 async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
