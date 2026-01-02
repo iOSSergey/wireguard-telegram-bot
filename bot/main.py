@@ -42,8 +42,8 @@ if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
 else:
     ADMIN_TG_ID = None
 
-BOT_PUBLIC_NAME = os.getenv("BOT_PUBLIC_NAME", "VPN")
-BOT_TELEGRAM_USERNAME = os.getenv("BOT_TELEGRAM_USERNAME", "")
+# only image — no titles/bodies in env
+WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
 
 
 # ===== Helpers =====
@@ -123,22 +123,31 @@ def main_keyboard():
 # ===== Handlers =====
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+    """
+    Нейтральное приветствие.
+    Названия сервиса нет. Картинка — только если указана в .env.
+    """
 
     text = (
-        f"👋 Добро пожаловать в <b>{BOT_PUBLIC_NAME}</b>!\n\n"
-        f"Ваш Telegram ID:\n<code>{user.id}</code>\n\n"
-        "Используйте кнопки ниже."
+        "👋 Добро пожаловать!\n\n"
+        "Этот бот поможет вам получить доступ и управлять подключением.\n\n"
+        "👉 Нажмите кнопку ниже или отправьте /start ещё раз, чтобы продолжить."
     )
 
-    if BOT_TELEGRAM_USERNAME:
-        text += f"\n\nНаш Telegram бот: {BOT_TELEGRAM_USERNAME}"
-
-    await update.message.reply_text(
-        text=text,
-        reply_markup=main_keyboard(),
-        parse_mode="HTML",
-    )
+    # если указана картинка — показываем её
+    if WELCOME_IMAGE_URL:
+        await update.message.reply_photo(
+            photo=WELCOME_IMAGE_URL,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=main_keyboard(),
+        )
+    else:
+        await update.message.reply_text(
+            text=text,
+            parse_mode="HTML",
+            reply_markup=main_keyboard(),
+        )
 
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -165,7 +174,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         filename=filename,
         caption=(
             "✅ Ваш конфигурационный файл WireGuard.\n"
-            "Он всегда будет одинаковым."
+            "Файл постоянный — сохраняйте его."
         ),
     )
 
@@ -179,8 +188,7 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not peer:
         await query.message.reply_text(
-            "❌ Доступ не найден.\n"
-            "Обратитесь в поддержку."
+            "❌ Доступ не найден. Обратитесь в поддержку."
         )
         return
 
@@ -212,10 +220,10 @@ async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = (
         "🛠 Админ-команды:\n"
         "/admin – справка\n"
-        "/user <telegram_id> – информация\n"
-        "/block <telegram_id> – отключить\n"
-        "/unblock <telegram_id> – включить\n"
-        "/extend <telegram_id> <days> – продлить доступ\n"
+        "/user <id> – информация\n"
+        "/block <id> – отключить\n"
+        "/unblock <id> – включить\n"
+        "/extend <id> <days> – продлить"
     )
     await update.message.reply_text(text)
 
@@ -251,8 +259,8 @@ async def admin_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     created = datetime.fromtimestamp(peer["created_at"]).strftime("%d.%m.%Y %H:%M")
 
     text = (
-        "ℹ️ Информация о пользователе\n\n"
-        f"👤 Telegram ID: <code>{peer['telegram_id']}</code>\n"
+        "ℹ️ Информация\n\n"
+        f"👤 ID: <code>{peer['telegram_id']}</code>\n"
         f"Имя: {peer['name']}\n"
         f"{status}\n"
         f"{expires_text}\n"
