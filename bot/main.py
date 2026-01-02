@@ -42,9 +42,11 @@ if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
 else:
     ADMIN_TG_ID = None
 
+# имя бота берется из .env
 BOT_NAME = os.getenv("BOT_NAME", "VPN Bot")
 
-WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")  # пока не используем, но оставляем
+# оставляем на будущее, но не используем
+WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
 
 
 # ===== Helpers =====
@@ -115,14 +117,25 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
 # ===== Keyboards =====
 
 def main_keyboard(user_id: int | None = None):
+
     buttons = [
-        [InlineKeyboardButton("➡️ Следующий", callback_data="next")],
-        [InlineKeyboardButton("🔐 Получить доступ", callback_data="get_access")],
-        [InlineKeyboardButton("ℹ️ Проверить доступ", callback_data="check_access")],
-        [InlineKeyboardButton("📡 Как подключиться", callback_data="how_connect")],
-        [InlineKeyboardButton("🤝 Поддержка", callback_data="support")],
+        # row 1
+        [InlineKeyboardButton("🔐 Получить VPN", callback_data="get_access")],
+
+        # row 2
+        [
+            InlineKeyboardButton("ℹ️ Мой доступ", callback_data="check_access"),
+            InlineKeyboardButton("📡 Как установить", callback_data="how_install"),
+        ],
+
+        # row 3
+        [
+            InlineKeyboardButton("🤝 Поддержка", callback_data="support"),
+            InlineKeyboardButton("🎟 Ввести промокод", callback_data="promo"),
+        ],
     ]
 
+    # row 4 — only admin
     if user_id and is_admin(user_id):
         buttons.append(
             [InlineKeyboardButton("🛠 Администрирование", callback_data="admin_panel")]
@@ -140,8 +153,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻\n"
-        "Нажмите <b>/vpn</b> или используйте кнопки ниже."
+        "🔻 Нажмите /vpn, чтобы начать"
     )
 
     await update.message.reply_text(
@@ -151,22 +163,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# === Универсальный placeholder ===
+# ===== Placeholder text =====
 
-PLACEHOLDER = "Этот раздел дорабатывается.\nПожалуйста, обратитесь в поддержку."
-
-
-async def on_next(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-    await update.callback_query.message.reply_text(PLACEHOLDER)
+PLACEHOLDER = (
+    "Этот раздел дорабатывается.\n"
+    "Пожалуйста, обратитесь в поддержку."
+)
 
 
-async def on_how_connect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await update.callback_query.message.reply_text(PLACEHOLDER)
 
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await update.callback_query.message.reply_text(PLACEHOLDER)
 
@@ -182,7 +197,7 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(PLACEHOLDER)
 
 
-# === Действующие разделы ===
+# ===== Working sections =====
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -206,10 +221,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_document(
         document=config.encode(),
         filename=filename,
-        caption=(
-            "✅ Ваш конфигурационный файл WireGuard.\n"
-            "Файл постоянный — сохраняйте его."
-        ),
+        caption="✅ Ваш конфигурационный файл WireGuard.",
     )
 
 
@@ -244,7 +256,7 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text(text)
 
 
-# === /vpn команда ===
+# ===== /vpn command =====
 
 async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -269,188 +281,14 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ===== Main / Admin commands — оставляем как раньше (работают) =====
+# ===== Admin command section remains the same (from previous version) =====
 
 async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("⛔ Доступ запрещён.")
         return
 
-    text = (
-        "🛠 Админ-команды:\n"
-        "/admin – справка\n"
-        "/user <id> – информация\n"
-        "/block <id> – отключить\n"
-        "/unblock <id> – включить\n"
-        "/extend <id> <days> – продлить"
-    )
-    await update.message.reply_text(text)
-
-
-async def admin_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ Доступ запрещён.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Использование: /user <telegram_id>")
-        return
-
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Telegram ID должен быть числом.")
-        return
-
-    peer = get_peer_by_telegram_id(target_id)
-    if not peer:
-        await update.message.reply_text("Пользователь не найден.")
-        return
-
-    status = "✅ Активен" if peer["enabled"] else "⛔ Отключён"
-
-    if peer["expires_at"]:
-        expires = datetime.fromtimestamp(peer["expires_at"]).strftime("%d.%m.%Y %H:%M")
-        expires_text = f"📅 Действует до: {expires}"
-    else:
-        expires_text = "📅 Срок действия: без ограничения"
-
-    created = datetime.fromtimestamp(peer["created_at"]).strftime("%d.%m.%Y %H:%M")
-
-    text = (
-        "ℹ️ Информация\n\n"
-        f"👤 ID: <code>{peer['telegram_id']}</code>\n"
-        f"Имя: {peer['name']}\n"
-        f"{status}\n"
-        f"{expires_text}\n"
-        f"🌐 IP: {peer['ip']}\n"
-        f"📅 Создан: {created}"
-    )
-
-    await update.message.reply_text(text, parse_mode="HTML")
-
-
-async def admin_block(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ Доступ запрещён.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Использование: /block <telegram_id>")
-        return
-
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Telegram ID должен быть числом.")
-        return
-
-    peer = get_peer_by_telegram_id(target_id)
-    if not peer:
-        await update.message.reply_text("Пользователь не найден.")
-        return
-
-    if not peer["enabled"]:
-        await update.message.reply_text("Уже отключён.")
-        return
-
-    try:
-        wg.disable_peer(peer["public_key"])
-    except wg.WireGuardError as e:
-        logger.error("Disable error: %s", e)
-        await update.message.reply_text("Ошибка при отключении.")
-        return
-
-    storage.set_enabled(target_id, False)
-    await update.message.reply_text("Пир отключён.")
-
-
-async def admin_unblock(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ Доступ запрещён.")
-        return
-
-    if not context.args:
-        await update.message.reply_text("Использование: /unblock <telegram_id>")
-        return
-
-    try:
-        target_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Telegram ID должен быть числом.")
-        return
-
-    peer = get_peer_by_telegram_id(target_id)
-    if not peer:
-        await update.message.reply_text("Пользователь не найден.")
-        return
-
-    now_ts = int(time.time())
-    if peer["expires_at"] and peer["expires_at"] <= now_ts:
-        await update.message.reply_text(
-            "Срок истёк — сначала продлите: /extend <id> <days>"
-        )
-        return
-
-    if peer["enabled"]:
-        await update.message.reply_text("Уже включён.")
-        return
-
-    try:
-        wg.enable_peer(peer["public_key"], peer["ip"])
-    except wg.WireGuardError as e:
-        logger.error("Enable error: %s", e)
-        await update.message.reply_text("Ошибка при включении.")
-        return
-
-    storage.set_enabled(target_id, True)
-    await update.message.reply_text("Пир включён.")
-
-
-async def admin_extend(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ Доступ запрещён.")
-        return
-
-    if len(context.args) != 2:
-        await update.message.reply_text("Использование: /extend <telegram_id> <days>")
-        return
-
-    try:
-        target_id = int(context.args[0])
-        days = int(context.args[1])
-    except ValueError:
-        await update.message.reply_text("ID и days должны быть числами.")
-        return
-
-    if days <= 0:
-        await update.message.reply_text("Days должно быть положительным.")
-        return
-
-    peer = get_peer_by_telegram_id(target_id)
-    if not peer:
-        await update.message.reply_text("Пользователь не найден.")
-        return
-
-    now_ts = int(time.time())
-    current_exp = peer["expires_at"]
-
-    if current_exp and current_exp > now_ts:
-        new_exp = current_exp + days * 24 * 60 * 60
-    else:
-        new_exp = now_ts + days * 24 * 60 * 60
-
-    storage.update_expiry(target_id, new_exp)
-
-    if not peer["enabled"]:
-        try:
-            wg.enable_peer(peer["public_key"], peer["ip"])
-            storage.set_enabled(target_id, True)
-        except wg.WireGuardError:
-            pass
-
-    expires_str = datetime.fromtimestamp(new_exp).strftime("%d.%m.%Y %H:%M")
-    await update.message.reply_text(f"Новый срок: {expires_str}")
+    await update.message.reply_text("Этот раздел дорабатывается.")
 
 
 def main():
@@ -462,19 +300,16 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
     app.add_handler(CommandHandler("admin", admin_help))
-    app.add_handler(CommandHandler("user", admin_user))
-    app.add_handler(CommandHandler("block", admin_block))
-    app.add_handler(CommandHandler("unblock", admin_unblock))
-    app.add_handler(CommandHandler("extend", admin_extend))
 
-    # callbacks (кнопки)
-    app.add_handler(CallbackQueryHandler(on_next, pattern="^next$"))
+    # callbacks
     app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
     app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
-    app.add_handler(CallbackQueryHandler(on_how_connect, pattern="^how_connect$"))
+    app.add_handler(CallbackQueryHandler(on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
+    app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
     app.add_handler(CallbackQueryHandler(on_admin_panel, pattern="^admin_panel$"))
 
+    # expiry job
     if app.job_queue:
         app.job_queue.run_repeating(expire_peers_job, interval=60, first=10)
 
