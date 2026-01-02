@@ -42,11 +42,13 @@ if ADMIN_TG_ID and ADMIN_TG_ID.isdigit():
 else:
     ADMIN_TG_ID = None
 
-# имя бота берется из .env
 BOT_NAME = os.getenv("BOT_NAME", "VPN Bot")
 
-# оставляем на будущее, но не используем
+# пока не используем, но сохраняем на будущее
 WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
+
+# поддержка (может быть пусто)
+SUPPORT_TG_USERNAME = os.getenv("SUPPORT_TG_USERNAME")
 
 
 # ===== Helpers =====
@@ -119,23 +121,19 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
 def main_keyboard(user_id: int | None = None):
 
     buttons = [
-        # row 1
         [InlineKeyboardButton("🔐 Получить VPN", callback_data="get_access")],
 
-        # row 2
         [
             InlineKeyboardButton("ℹ️ Мой доступ", callback_data="check_access"),
             InlineKeyboardButton("📡 Как установить", callback_data="how_install"),
         ],
 
-        # row 3
         [
             InlineKeyboardButton("🤝 Поддержка", callback_data="support"),
             InlineKeyboardButton("🎟 Ввести промокод", callback_data="promo"),
         ],
     ]
 
-    # row 4 — only admin
     if user_id and is_admin(user_id):
         buttons.append(
             [InlineKeyboardButton("🛠 Администрирование", callback_data="admin_panel")]
@@ -153,7 +151,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻 Нажмите /vpn, чтобы начать"
+        "🔻 Нажмите «Получить VPN», чтобы начать"
     )
 
     await update.message.reply_text(
@@ -163,12 +161,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ===== Placeholder text =====
+# ===== Placeholder helpers =====
 
-PLACEHOLDER = (
-    "Этот раздел дорабатывается.\n"
-    "Пожалуйста, обратитесь в поддержку."
-)
+def make_placeholder() -> str:
+    base = "Этот раздел дорабатывается."
+    if SUPPORT_TG_USERNAME:
+        return f"{base}\nПо вопросам — напишите: {SUPPORT_TG_USERNAME}"
+    return base
+
+
+PLACEHOLDER = make_placeholder()
 
 
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -178,7 +180,16 @@ async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+    if SUPPORT_TG_USERNAME:
+        text = (
+            "Мы всегда рады помочь!\n\n"
+            f"Напишите нам: {SUPPORT_TG_USERNAME}"
+        )
+    else:
+        text = PLACEHOLDER
+
+    await update.callback_query.message.reply_text(text)
 
 
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -233,9 +244,10 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     peer = get_peer_by_telegram_id(user.id)
 
     if not peer:
-        await query.message.reply_text(
-            "❌ Доступ не найден. Обратитесь в поддержку."
-        )
+        msg = "❌ Доступ не найден."
+        if SUPPORT_TG_USERNAME:
+            msg += f"\nОбратитесь: {SUPPORT_TG_USERNAME}"
+        await query.message.reply_text(msg)
         return
 
     status = "✅ Активен" if peer["enabled"] else "⛔ Отключён"
@@ -281,7 +293,7 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ===== Admin command section remains the same (from previous version) =====
+# ===== Admin (пока простой placeholder) =====
 
 async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
@@ -296,12 +308,10 @@ def main():
 
     restore_peers_on_startup()
 
-    # commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
     app.add_handler(CommandHandler("admin", admin_help))
 
-    # callbacks
     app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
     app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
     app.add_handler(CallbackQueryHandler(on_how_install, pattern="^how_install$"))
@@ -309,7 +319,6 @@ def main():
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
     app.add_handler(CallbackQueryHandler(on_admin_panel, pattern="^admin_panel$"))
 
-    # expiry job
     if app.job_queue:
         app.job_queue.run_repeating(expire_peers_job, interval=60, first=10)
 
