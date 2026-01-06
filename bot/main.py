@@ -152,7 +152,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• сделать защищённый VPN-канал\n"
         "• выдать конфигурацию WireGuard\n"
         "• помочь подключиться\n\n"
-        "🔻 Нажми <b>/vpn</b> чтобы начать."
+        #"🔻 Нажми <b>/vpn</b> чтобы начать."
+        "👇 Выбирай действие с помощью кнопок ниже."
     )
 
     await update.message.reply_text(
@@ -177,14 +178,15 @@ PLACEHOLDER = make_placeholder()
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
-    if INSTALL_GUIDE_URL:
-        await update.callback_query.message.reply_text(
-            f"📡 Подробные инструкции:\n{INSTALL_GUIDE_URL}"
-        )
-    else:
-        await update.callback_query.message.reply_text(
-            "Инструкции пока недоступны."
-        )
+if INSTALL_GUIDE_URL:
+    # Отправляем ссылку отдельно строкой — Telegram покажет Live Preview
+    await update.callback_query.message.reply_text(
+        INSTALL_GUIDE_URL
+    )
+else:
+    await update.callback_query.message.reply_text(
+        "Инструкции пока недоступны."
+    )
 
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -236,7 +238,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(f"❌ Доступ недоступен:\n{e}")
         return
 
-    filename = f"{safe_filename(name)}.conf"
+    filename = f"{safe_filename(BOT_NAME)}.conf"
 
     await query.message.reply_document(
         document=config.encode(),
