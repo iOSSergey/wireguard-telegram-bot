@@ -178,15 +178,15 @@ PLACEHOLDER = make_placeholder()
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
-if INSTALL_GUIDE_URL:
-    # Отправляем ссылку отдельно строкой — Telegram покажет Live Preview
-    await update.callback_query.message.reply_text(
-        INSTALL_GUIDE_URL
-    )
-else:
-    await update.callback_query.message.reply_text(
-        "Инструкции пока недоступны."
-    )
+    if INSTALL_GUIDE_URL:
+        # Отправляем ссылку отдельно строкой — Telegram покажет Live Preview
+        await update.callback_query.message.reply_text(
+            INSTALL_GUIDE_URL
+        )
+    else:
+        await update.callback_query.message.reply_text(
+            "Инструкции пока недоступны."
+        )
 
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
