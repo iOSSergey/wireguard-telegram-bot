@@ -45,6 +45,21 @@ def get_peer_by_telegram_id(telegram_id: int) -> Optional[sqlite3.Row]:
     return row
 
 
+def get_peers_by_telegram_id(telegram_id: int) -> list[sqlite3.Row]:
+    """
+    Возвращает список peer'ов пользователя.
+    Сейчас максимум 1, но архитектура готова к нескольким.
+    """
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT * FROM peers WHERE telegram_id = ? ORDER BY id",
+        (telegram_id,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 def create_peer(
     telegram_id: int,
     name: str,
@@ -103,11 +118,6 @@ def set_enabled(telegram_id: int, enabled: bool):
 
 
 def get_peers_for_restore(now_ts: int):
-    """Return peers that should be active in WireGuard right now.
-
-    Восстанавливаем только те peer'ы, которые помечены как enabled в БД
-    и при этом ещё не истекли по expires_at.
-    """
     conn = get_db()
     cur = conn.execute(
         """SELECT * FROM peers
@@ -123,7 +133,6 @@ def get_peers_for_restore(now_ts: int):
 
 
 def get_expired_peers(now_ts: int):
-    """Return peers that should be disabled because they expired."""
     conn = get_db()
     cur = conn.execute(
         """SELECT * FROM peers
@@ -140,10 +149,6 @@ def get_expired_peers(now_ts: int):
 
 
 def get_next_ip(subnet_prefix: str = "10.8.0.") -> str:
-    """
-    Allocate next IP strictly based on DB state.
-    Manual / legacy peers must be outside FIRST_CLIENT_IP range.
-    """
     conn = get_db()
     cur = conn.execute(
         "SELECT ip FROM peers ORDER BY id DESC LIMIT 1"
