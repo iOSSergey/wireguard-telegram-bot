@@ -68,23 +68,50 @@ def restore_peers_on_startup():
     now_ts = int(time.time())
     peers = storage.get_peers_for_restore(now_ts)
 
+    if not peers:
+        logger.info("No peers to restore on startup")
+        return
+
+    restored = 0
     for peer in peers:
         try:
             wg.enable_peer(peer["public_key"], peer["ip"])
+            restored += 1
         except wg.WireGuardError as e:
-            logger.error("Failed to restore peer %s: %s", peer["ip"], e)
+            logger.error(
+                "Failed to enable peer %s (%s): %s",
+                peer["public_key"],
+                peer["ip"],
+                e,
+            )
+
+    logger.info("Restored %d peers into WireGuard", restored)
 
 
 async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     now_ts = int(time.time())
     peers = storage.get_expired_peers(now_ts)
+    if not peers:
+        return
 
     for peer in peers:
         try:
             wg.disable_peer(peer["public_key"])
-            storage.set_enabled(peer["telegram_id"], False)
         except wg.WireGuardError as e:
-            logger.error("Failed to disable peer %s: %s", peer["ip"], e)
+            logger.error(
+                "Failed to disable expired peer %s (%s): %s",
+                peer["public_key"],
+                peer["ip"],
+                e,
+            )
+            continue
+
+        storage.set_enabled(peer["telegram_id"], False)
+        logger.info(
+            "Peer %s (tg=%s) disabled due to expiry",
+            peer["ip"],
+            peer["telegram_id"],
+        )
 
 
 # ===== Keyboards =====
@@ -126,7 +153,55 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ===== Sections =====
+# ===== Info sections =====
+
+def make_placeholder() -> str:
+    base = "Этот раздел пока в разработке."
+    if SUPPORT_TG_USERNAME:
+        return f"{base}\nПо вопросам — {SUPPORT_TG_USERNAME}"
+    return base
+
+
+PLACEHOLDER = make_placeholder()
+
+
+async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    if INSTALL_GUIDE_URL:
+        await update.callback_query.message.reply_text(INSTALL_GUIDE_URL)
+    else:
+        await update.callback_query.message.reply_text("Инструкции пока недоступны.")
+
+
+async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    if SUPPORT_TG_USERNAME:
+        await update.callback_query.message.reply_text(
+            f"🤝 Поддержка\n\nНапишите нам: {SUPPORT_TG_USERNAME}"
+        )
+    else:
+        await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(PLACEHOLDER)
+
+
+async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if not is_admin(query.from_user.id):
+        await query.message.reply_text("⛔ Доступ запрещён.")
+        return
+
+    await query.message.reply_text(PLACEHOLDER)
+
+
+# ===== VPN logic =====
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -145,7 +220,8 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         if len(devices) >= MAX_DEVICES_PER_USER:
             await query.message.reply_text(
-                "❗ Достигнут лимит устройств.\nУдалите старое устройство."
+                "❗ Достигнут лимит устройств.\n"
+                "Удалите текущее устройство, чтобы добавить новое."
             )
             return
 
@@ -156,7 +232,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ttl_days=30,
         )
     except ProvisionError as e:
-        await query.message.reply_text(f"❌ {e}")
+        await query.message.reply_text(f"❌ Доступ недоступен:\n{e}")
         return
 
     filename = f"{safe_filename(BOT_NAME)}.conf"
@@ -164,7 +240,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_document(
         document=config.encode(),
         filename=filename,
-        caption="✅ Конфигурация WireGuard",
+        caption="✅ Ваш конфигурационный файл WireGuard.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📡 Как установить", callback_data="how_install")]
         ]),
@@ -179,22 +255,28 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     peer = devices[0] if devices else None
 
     if not peer:
-        await query.message.reply_text("❌ Доступ не найден.")
+        msg = "❌ Доступ не найден."
+        if SUPPORT_TG_USERNAME:
+            msg += f"\nОбратитесь: {SUPPORT_TG_USERNAME}"
+        await query.message.reply_text(msg)
         return
 
     status = "✅ Активен" if peer["enabled"] else "⛔ Отключён"
-    expires = (
-        datetime.fromtimestamp(peer["expires_at"]).strftime("%d.%m.%Y %H:%M")
-        if peer["expires_at"]
-        else "без ограничения"
-    )
 
-    await query.message.reply_text(
-        f"ℹ️ Статус доступа\n\n"
+    if peer["expires_at"]:
+        expires = datetime.fromtimestamp(peer["expires_at"]).strftime("%d.%m.%Y %H:%M")
+        expires_text = f"📅 Действует до: {expires}"
+    else:
+        expires_text = "📅 Срок действия: без ограничения"
+
+    text = (
+        "ℹ️ Статус доступа\n\n"
         f"{status}\n"
-        f"📅 Срок действия: {expires}\n"
+        f"{expires_text}\n"
         f"🌐 IP: {peer['ip']}"
     )
+
+    await query.message.reply_text(text)
 
 
 # ===== Commands =====
@@ -204,7 +286,6 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = user.full_name or user.username or "client"
 
     devices = storage.get_peers_by_telegram_id(user.id)
-
     if devices:
         await update.message.reply_text(
             "ℹ️ У вас уже есть активный VPN-доступ.\n"
@@ -218,7 +299,7 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ttl_days=30,
         )
     except ProvisionError as e:
-        await update.message.reply_text(f"❌ {e}")
+        await update.message.reply_text(f"❌ Доступ недоступен:\n{e}")
         return
 
     filename = f"{safe_filename(BOT_NAME)}.conf"
@@ -226,8 +307,16 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(
         document=config.encode(),
         filename=filename,
-        caption="✅ Конфигурация WireGuard",
+        caption="✅ Ваш конфигурационный файл WireGuard.",
     )
+
+
+async def admin_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("⛔ Доступ запрещён.")
+        return
+
+    await update.message.reply_text("Админ-раздел в разработке.")
 
 
 # ===== Main =====
@@ -237,11 +326,24 @@ def main():
 
     restore_peers_on_startup()
 
+    # commands
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
+    app.add_handler(CommandHandler("admin", admin_help))
 
+    # callbacks — VPN
     app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
     app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
+
+    # callbacks — info / service
+    app.add_handler(CallbackQueryHandler(on_how_install, pattern="^how_install$"))
+    app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
+    app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
+    app.add_handler(CallbackQueryHandler(on_admin_panel, pattern="^admin_panel$"))
+
+    # background jobs
+    if app.job_queue:
+        app.job_queue.run_repeating(expire_peers_job, interval=60, first=10)
 
     logger.info("Telegram bot started")
     app.run_polling()
