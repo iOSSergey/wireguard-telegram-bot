@@ -7,7 +7,7 @@ import random
 from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 from bot import storage, wg
 from bot.provision import get_or_create_peer_and_config, ProvisionError
@@ -300,7 +300,14 @@ async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.message.reply_text("Активация промокодов будет добавлена позже")
+    context.user_data['waiting_for_promo'] = True
+    await update.callback_query.message.reply_text(
+        "🎟 <b>Введите промокод</b>\n\n"
+        "Промокод имеет формат: XX-XXXX-XXD\n"
+        "Например: AB-JULY-30D\n\n"
+        "Отправьте промокод следующим сообщением.",
+        parse_mode="HTML"
+    )
 
 
 async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -323,6 +330,78 @@ async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=main_keyboard(q.from_user.id),
     )
+
+
+async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик активации промокодов"""
+    if not context.user_data.get('waiting_for_promo'):
+        return
+
+    context.user_data['waiting_for_promo'] = False
+    code = update.message.text.strip().upper()
+
+    # Проверяем формат промокода
+    if not re.match(r'^[A-Z0-9]{2}-[A-Z]{4}-\d+D$', code):
+        await update.message.reply_text(
+            "❌ Неверный формат промокода.\n\n"
+            "Промокод должен иметь формат: XX-XXXX-XXD\n"
+            "Например: AB-JULY-30D"
+        )
+        return
+
+    # Проверяем промокод в базе данных
+    promo = storage.get_promo_code(code)
+
+    if not promo:
+        await update.message.reply_text(
+            "❌ Промокод не найден.\n\n"
+            "Проверьте правильность ввода и попробуйте снова."
+        )
+        return
+
+    if promo['activated_at']:
+        await update.message.reply_text(
+            "❌ Этот промокод уже был использован.\n\n"
+            f"Активирован: {datetime.fromtimestamp(promo['activated_at']).strftime('%d.%m.%Y %H:%M')}"
+        )
+        return
+
+    # Активируем промокод
+    days = promo['days']
+    user_id = update.effective_user.id
+
+    # Получаем текущего пользователя
+    peer = storage.get_peer_by_telegram_id(user_id)
+
+    if peer:
+        # Обновляем срок действия
+        current_expires = peer['expires_at'] or int(time.time())
+        # Если срок истек, начинаем с текущего времени
+        if current_expires < int(time.time()):
+            current_expires = int(time.time())
+        new_expires = current_expires + (days * 24 * 60 * 60)
+        storage.update_expiry(user_id, new_expires)
+
+        expires_date = datetime.fromtimestamp(
+            new_expires).strftime('%d.%m.%Y %H:%M')
+        await update.message.reply_text(
+            f"✅ <b>Промокод активирован!</b>\n\n"
+            f"Добавлено: {days} дней\n"
+            f"Доступ продлён до: {expires_date}",
+            parse_mode="HTML"
+        )
+    else:
+        # Создаем нового пользователя с доступом
+        await update.message.reply_text(
+            f"✅ <b>Промокод активирован!</b>\n\n"
+            f"Вам предоставлен доступ на {days} дней.\n\n"
+            f"Используйте команду /vpn для получения конфигурации.",
+            parse_mode="HTML"
+        )
+
+    # Помечаем промокод как использованный
+    storage.activate_promo_code(code, user_id)
+    logger.info(f"Promo code {code} activated by user {user_id}")
 
 
 # ===== Commands =====
@@ -401,6 +480,8 @@ def main():
         on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND, handle_promo_code))
     app.run_polling()
 
 
