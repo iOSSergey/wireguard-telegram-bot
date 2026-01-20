@@ -403,5 +403,6 @@ def main():
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
     app.run_polling()
 
-    if __name__ == '__main__':
-        main()
+
+if __name__ == '__main__':
+    main()
