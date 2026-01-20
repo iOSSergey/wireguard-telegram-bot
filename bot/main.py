@@ -149,9 +149,9 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     days = int(q.data.split('_')[-1])
-    code = generate_promo(days).upper()  # Гарантируем верхний регистр
+    code = generate_promo(days).upper()  # Ensure uppercase
 
-    # Сохраняем промокод в базу данных
+    # Save promo code to database
     storage.save_promo_code(code, days, q.from_user.id)
 
     text = (
@@ -311,7 +311,7 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Возврат в главное меню"""
+    """Return to main menu"""
     q = update.callback_query
     await q.answer()
 
@@ -333,15 +333,15 @@ async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик активации промокодов"""
+    """Promo code activation handler"""
     if not context.user_data.get('waiting_for_promo'):
         return
 
     context.user_data['waiting_for_promo'] = False
-    # Преобразуем в верхний регистр для единообразия (регистр не важен)
+    # Convert to uppercase for consistency (case-insensitive)
     code = update.message.text.strip().upper()
 
-    # Проверяем формат промокода
+    # Check promo code format
     if not re.match(r'^[A-Z0-9]{2}-[A-Z]{4}-\d+D$', code):
         await update.message.reply_text(
             "❌ Неверный формат промокода.\n\n"
@@ -350,7 +350,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Проверяем промокод в базе данных
+    # Check promo code in database
     promo = storage.get_promo_code(code)
 
     if not promo:
@@ -367,7 +367,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Дополнительная проверка: количество дней в коде должно совпадать с БД
+    # Additional check: days in code must match database
     code_days = int(code.split('-')[-1].rstrip('D'))
     if code_days != promo['days']:
         await update.message.reply_text(
@@ -378,17 +378,17 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Promo code mismatch: code={code}, code_days={code_days}, db_days={promo['days']}")
         return
 
-    # Активируем промокод
+    # Activate promo code
     days = promo['days']
     user_id = update.effective_user.id
 
-    # Получаем текущего пользователя
+    # Get current user
     peer = storage.get_peer_by_telegram_id(user_id)
 
     if peer:
-        # Обновляем срок действия
+        # Update expiration date
         current_expires = peer['expires_at'] or int(time.time())
-        # Если срок истек, начинаем с текущего времени
+        # If expired, start from current time
         if current_expires < int(time.time()):
             current_expires = int(time.time())
         new_expires = current_expires + (days * 24 * 60 * 60)
@@ -403,7 +403,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     else:
-        # Создаем нового пользователя с доступом
+        # Create new user with access
         await update.message.reply_text(
             f"✅ <b>Промокод активирован!</b>\n\n"
             f"Вам предоставлен доступ на {days} дней.\n\n"
@@ -411,7 +411,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
 
-    # Помечаем промокод как использованный
+    # Mark promo code as used
     storage.activate_promo_code(code, user_id)
     logger.info(f"Promo code {code} activated by user {user_id}")
 
