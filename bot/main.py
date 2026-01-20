@@ -12,14 +12,16 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 from bot import storage, wg
 from bot.provision import get_or_create_peer_and_config, ProvisionError
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is not set in environment")
 
-ADMIN_TG_ID = int(os.getenv("ADMIN_TG_ID")) if os.getenv("ADMIN_TG_ID", "").isdigit() else None
+ADMIN_TG_ID = int(os.getenv("ADMIN_TG_ID")) if os.getenv(
+    "ADMIN_TG_ID", "").isdigit() else None
 BOT_NAME = os.getenv("BOT_NAME", "VPN Bot")
 SUPPORT_TG_USERNAME = os.getenv("SUPPORT_TG_USERNAME")
 INSTALL_GUIDE_URL = os.getenv("INSTALL_GUIDE_URL")
@@ -35,11 +37,14 @@ def is_admin(user_id: int) -> bool:
 def main_keyboard(user_id=None):
     buttons = [
         [InlineKeyboardButton("🔐 Получить VPN", callback_data="get_access")],
-        [InlineKeyboardButton("ℹ️ Мой доступ", callback_data="check_access"), InlineKeyboardButton("📡 Как установить", callback_data="how_install")],
-        [InlineKeyboardButton("🤝 Поддержка", callback_data="support"), InlineKeyboardButton("🎟 Ввести промокод", callback_data="promo")],
+        [InlineKeyboardButton("ℹ️ Мой доступ", callback_data="check_access"), InlineKeyboardButton(
+            "📡 Как установить", callback_data="how_install")],
+        [InlineKeyboardButton("🤝 Поддержка", callback_data="support"), InlineKeyboardButton(
+            "🎟 Ввести промокод", callback_data="promo")],
     ]
     if user_id and is_admin(user_id):
-        buttons.append([InlineKeyboardButton("🛠 Администрирование", callback_data="admin_panel")])
+        buttons.append([InlineKeyboardButton(
+            "🛠 Администрирование", callback_data="admin_panel")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -81,14 +86,17 @@ async def on_admin_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("7 дней", callback_data="promo_days_7"), InlineKeyboardButton("30 дней", callback_data="promo_days_30")],
-        [InlineKeyboardButton("60 дней", callback_data="promo_days_60"), InlineKeyboardButton("365 дней", callback_data="promo_days_365")],
+        [InlineKeyboardButton("7 дней", callback_data="promo_days_7"), InlineKeyboardButton(
+            "30 дней", callback_data="promo_days_30")],
+        [InlineKeyboardButton("60 дней", callback_data="promo_days_60"), InlineKeyboardButton(
+            "365 дней", callback_data="promo_days_365")],
     ])
     await q.message.reply_text("🎟 Выберите срок промокода", reply_markup=kb)
 
 
 def generate_promo(days: int) -> str:
-    prefix = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(2))
+    prefix = ''.join(random.choice(
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(2))
     word = WORDS[int(time.time()) % len(WORDS)]
     return f"{prefix}-{word}-{days}D"
 
@@ -98,8 +106,7 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     days = int(q.data.split('_')[-1])
     code = generate_promo(days)
-    await q.message.reply_text(f"✅ Промокод создан:
-<code>{code}</code>", parse_mode="HTML")
+    await q.message.reply_text(f"✅ Промокод создан:\n<code>{code}</code>", parse_mode="HTML")
 
 
 async def stub(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -133,13 +140,19 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(on_admin_panel, pattern="^admin_panel$"))
-    app.add_handler(CallbackQueryHandler(on_admin_promo, pattern="^admin_promo$"))
-    app.add_handler(CallbackQueryHandler(on_promo_days, pattern="^promo_days_"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_panel, pattern="^admin_panel$"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_promo, pattern="^admin_promo$"))
+    app.add_handler(CallbackQueryHandler(
+        on_promo_days, pattern="^promo_days_"))
     app.add_handler(CallbackQueryHandler(stub, pattern="^admin_"))
-    app.add_handler(CallbackQueryHandler(on_get_access, pattern="^get_access$"))
-    app.add_handler(CallbackQueryHandler(on_check_access, pattern="^check_access$"))
-    app.add_handler(CallbackQueryHandler(on_how_install, pattern="^how_install$"))
+    app.add_handler(CallbackQueryHandler(
+        on_get_access, pattern="^get_access$"))
+    app.add_handler(CallbackQueryHandler(
+        on_check_access, pattern="^check_access$"))
+    app.add_handler(CallbackQueryHandler(
+        on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
     app.run_polling()
@@ -147,4 +160,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
