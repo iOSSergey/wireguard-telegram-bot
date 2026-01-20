@@ -109,6 +109,10 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     days = int(q.data.split('_')[-1])
     code = generate_promo(days)
+
+    # Сохраняем промокод в базу данных
+    storage.save_promo_code(code, days, q.from_user.id)
+
     text = (
         f"✅ Промокод создан:\n"
         f"<code>{code}</code>\n\n"
@@ -120,9 +124,32 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(text, parse_mode="HTML")
 
 
-async def stub(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-    await update.callback_query.message.reply_text("Раздел в разработке")
+async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        await q.message.reply_text("⛔ Доступ запрещён")
+        return
+
+    stats, recent = storage.get_promo_stats()
+
+    text = "📊 <b>Статистика по промокодам</b>\n\n"
+    text += f"Всего создано: {stats['total']}\n"
+    text += f"Активировано: {stats['activated']}\n"
+    text += f"Не использовано: {stats['unused']}\n\n"
+
+    if recent:
+        text += "<b>Последние 20 промокодов:</b>\n"
+        for promo in recent:
+            status = "✅" if promo['activated_at'] else "⏳"
+            text += f"\n{status} <code>{promo['code']}</code> ({promo['days']} дн.)\n"
+            text += f"  Создан: {datetime.fromtimestamp(promo['created_at']).strftime('%d.%m.%Y %H:%M')}\n"
+            if promo['activated_at']:
+                text += f"  Активирован: {datetime.fromtimestamp(promo['activated_at']).strftime('%d.%m.%Y %H:%M')}\n"
+    else:
+        text += "<i>Промокодов пока нет</i>"
+
+    await q.message.reply_text(text, parse_mode="HTML")
 
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,7 +199,8 @@ def main():
         on_admin_promo, pattern="^admin_promo$"))
     app.add_handler(CallbackQueryHandler(
         on_promo_days, pattern="^promo_days_"))
-    app.add_handler(CallbackQueryHandler(stub, pattern="^admin_"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_stats, pattern="^admin_stats$"))
     app.add_handler(CallbackQueryHandler(
         on_get_access, pattern="^get_access$"))
     app.add_handler(CallbackQueryHandler(

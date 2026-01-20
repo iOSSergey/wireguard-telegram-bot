@@ -30,6 +30,17 @@ def init_db():
             enabled INTEGER NOT NULL DEFAULT 1
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS promo_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            days INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            created_by INTEGER NOT NULL,
+            activated_at INTEGER,
+            activated_by INTEGER
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -163,3 +174,67 @@ def get_next_ip(subnet_prefix: str = "10.8.0.") -> str:
     last_octet = int(last_ip.split(".")[-1])
     return f"{subnet_prefix}{last_octet + 1}"
 
+
+def save_promo_code(code: str, days: int, created_by: int):
+    """Сохраняет созданный промокод"""
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO promo_codes (code, days, created_at, created_by)
+        VALUES (?, ?, ?, ?)
+        """,
+        (code, days, int(time.time()), created_by)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_promo_code(code: str) -> Optional[sqlite3.Row]:
+    """Возвращает информацию о промокоде"""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT * FROM promo_codes WHERE code = ?",
+        (code,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row
+
+
+def activate_promo_code(code: str, activated_by: int):
+    """Помечает промокод как активированный"""
+    conn = get_db()
+    conn.execute(
+        """
+        UPDATE promo_codes 
+        SET activated_at = ?, activated_by = ? 
+        WHERE code = ?
+        """,
+        (int(time.time()), activated_by, code)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_promo_stats():
+    """Возвращает статистику по промокодам"""
+    conn = get_db()
+    cur = conn.execute("""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN activated_at IS NOT NULL THEN 1 ELSE 0 END) as activated,
+            SUM(CASE WHEN activated_at IS NULL THEN 1 ELSE 0 END) as unused
+        FROM promo_codes
+    """)
+    stats = cur.fetchone()
+
+    cur = conn.execute("""
+        SELECT code, days, created_at, activated_at, activated_by
+        FROM promo_codes
+        ORDER BY created_at DESC
+        LIMIT 20
+    """)
+    recent = cur.fetchall()
+
+    conn.close()
+    return stats, recent
