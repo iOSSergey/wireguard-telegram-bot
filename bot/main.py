@@ -69,6 +69,33 @@ def restore_peers_on_startup():
     logger.info("Restored %d peers into WireGuard", restored)
 
 
+async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
+    """Periodic job to disable expired peers"""
+    now_ts = int(time.time())
+    peers = storage.get_expired_peers(now_ts)
+    if not peers:
+        return
+
+    for peer in peers:
+        try:
+            wg.disable_peer(peer["public_key"])
+        except wg.WireGuardError as e:
+            logger.error(
+                "Failed to disable expired peer %s (%s): %s",
+                peer["public_key"],
+                peer["ip"],
+                e,
+            )
+            continue
+
+        storage.set_enabled(peer["telegram_id"], False)
+        logger.info(
+            "Peer %s (tg=%s) disabled due to expiry",
+            peer["ip"],
+            peer["telegram_id"],
+        )
+
+
 def main_keyboard(user_id=None):
     buttons = [
         [InlineKeyboardButton("🔐 Получить VPN", callback_data="get_access")],
@@ -470,6 +497,9 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     restore_peers_on_startup()
+
+    # Add periodic job to check and disable expired peers every 30 minutes
+    app.job_queue.run_repeating(expire_peers_job, interval=1800, first=60)
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
