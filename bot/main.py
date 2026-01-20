@@ -86,6 +86,9 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_admin_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
+    if not is_admin(q.from_user.id):
+        await q.message.reply_text("⛔ Доступ запрещён")
+        return
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("7 дней", callback_data="promo_days_7"), InlineKeyboardButton(
             "15 дней", callback_data="promo_days_15")],
@@ -154,10 +157,12 @@ async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
+    await update.callback_query.message.reply_text("🔐 Получение доступа в разработке")
 
 
 async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
+    await update.callback_query.message.reply_text("ℹ️ Проверка доступа в разработке")
 
 
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
