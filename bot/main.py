@@ -366,6 +366,17 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Дополнительная проверка: количество дней в коде должно совпадать с БД
+    code_days = int(code.split('-')[-1].rstrip('D'))
+    if code_days != promo['days']:
+        await update.message.reply_text(
+            "❌ Промокод поврежден или недействителен.\n\n"
+            "Обратитесь в поддержку."
+        )
+        logger.warning(
+            f"Promo code mismatch: code={code}, code_days={code_days}, db_days={promo['days']}")
+        return
+
     # Активируем промокод
     days = promo['days']
     user_id = update.effective_user.id
