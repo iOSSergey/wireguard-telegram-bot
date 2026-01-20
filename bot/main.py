@@ -359,51 +359,49 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   callback_data="how_install")]
         ]),
     )
-    )
 
 
-    async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
     if not is_admin(user_id):
         await update.message.reply_text("⛔ Доступ запрещён")
-    return
-        kb = InlineKeyboardMarkup([
+        return
+    kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Создать промокод",
-                                  callback_data="admin_promo")],
+                              callback_data="admin_promo")],
         [InlineKeyboardButton("ℹ️ Показать статистику",
-                                  callback_data="admin_stats")],
+                              callback_data="admin_stats")],
     ])
-        await update.message.reply_text("🛠 Администрирование", reply_markup=kb)
+    await update.message.reply_text("🛠 Администрирование", reply_markup=kb)
 
 
-        def main():
-        app = ApplicationBuilder().token(BOT_TOKEN).build()
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-        restore_peers_on_startup()
+    restore_peers_on_startup()
 
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("vpn", cmd_vpn))
-        app.add_handler(CommandHandler("admin", admin_command))
-        app.add_handler(CallbackQueryHandler(
-            on_admin_panel, pattern="^admin_panel$"))
-        app.add_handler(CallbackQueryHandler(
-            on_admin_promo, pattern="^admin_promo$"))
-        app.add_handler(CallbackQueryHandler(
-            on_promo_days, pattern="^promo_days_"))
-        app.add_handler(CallbackQueryHandler(
-            on_admin_stats, pattern="^admin_stats$"))
-        app.add_handler(CallbackQueryHandler(
-            on_back_to_main, pattern="^back_to_main$"))
-        app.add_handler(CallbackQueryHandler(
-            on_get_access, pattern="^get_access$"))
-        app.add_handler(CallbackQueryHandler(
-            on_check_access, pattern="^check_access$"))
-        app.add_handler(CallbackQueryHandler(
-            on_how_install, pattern="^how_install$"))
-        app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
-        app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
-        app.run_polling()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("vpn", cmd_vpn))
+    app.add_handler(CommandHandler("admin", admin_command))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_panel, pattern="^admin_panel$"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_promo, pattern="^admin_promo$"))
+    app.add_handler(CallbackQueryHandler(
+        on_promo_days, pattern="^promo_days_"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_stats, pattern="^admin_stats$"))
+    app.add_handler(CallbackQueryHandler(
+        on_back_to_main, pattern="^back_to_main$"))
+    app.add_handler(CallbackQueryHandler(
+        on_get_access, pattern="^get_access$"))
+    app.add_handler(CallbackQueryHandler(
+        on_check_access, pattern="^check_access$"))
+    app.add_handler(CallbackQueryHandler(
+        on_how_install, pattern="^how_install$"))
+    app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
+    app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
+    app.run_polling()
 
-
-        if __name__ == '__main__':
+    if __name__ == '__main__':
         main()
