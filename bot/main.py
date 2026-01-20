@@ -494,12 +494,17 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    # Build application with job queue enabled
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     restore_peers_on_startup()
 
     # Add periodic job to check and disable expired peers every 30 minutes
-    app.job_queue.run_repeating(expire_peers_job, interval=1800, first=60)
+    # Starts after 60 seconds, then runs every 1800 seconds (30 minutes)
+    if app.job_queue:
+        app.job_queue.run_repeating(expire_peers_job, interval=1800, first=60)
+    else:
+        logger.warning("JobQueue is not available, expiry checking disabled")
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
