@@ -149,7 +149,7 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     days = int(q.data.split('_')[-1])
-    code = generate_promo(days)
+    code = generate_promo(days).upper()  # Гарантируем верхний регистр
 
     # Сохраняем промокод в базу данных
     storage.save_promo_code(code, days, q.from_user.id)
@@ -338,6 +338,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     context.user_data['waiting_for_promo'] = False
+    # Преобразуем в верхний регистр для единообразия (регистр не важен)
     code = update.message.text.strip().upper()
 
     # Проверяем формат промокода
