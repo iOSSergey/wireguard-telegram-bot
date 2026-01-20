@@ -169,25 +169,29 @@ async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("⛔ Доступ запрещён")
         return
 
-    stats, recent = storage.get_promo_stats()
+    try:
+        stats, recent = storage.get_promo_stats()
 
-    text = "📊 <b>Статистика по промокодам</b>\n\n"
-    text += f"Всего создано: {stats['total']}\n"
-    text += f"Активировано: {stats['activated']}\n"
-    text += f"Не использовано: {stats['unused']}\n\n"
+        text = "📊 <b>Статистика по промокодам</b>\n\n"
+        text += f"Всего создано: {stats['total'] or 0}\n"
+        text += f"Активировано: {stats['activated'] or 0}\n"
+        text += f"Не использовано: {stats['unused'] or 0}\n\n"
 
-    if recent:
-        text += "<b>Последние 20 промокодов:</b>\n"
-        for promo in recent:
-            status = "✅" if promo['activated_at'] else "⏳"
-            text += f"\n{status} <code>{promo['code']}</code> ({promo['days']} дн.)\n"
-            text += f"  Создан: {datetime.fromtimestamp(promo['created_at']).strftime('%d.%m.%Y %H:%M')}\n"
-            if promo['activated_at']:
-                text += f"  Активирован: {datetime.fromtimestamp(promo['activated_at']).strftime('%d.%m.%Y %H:%M')}\n"
-    else:
-        text += "<i>Промокодов пока нет</i>"
+        if recent:
+            text += "<b>Последние 20 промокодов:</b>\n"
+            for promo in recent:
+                status = "✅" if promo['activated_at'] else "⏳"
+                text += f"\n{status} <code>{promo['code']}</code> ({promo['days']} дн.)\n"
+                text += f"  Создан: {datetime.fromtimestamp(promo['created_at']).strftime('%d.%m.%Y %H:%M')}\n"
+                if promo['activated_at']:
+                    text += f"  Активирован: {datetime.fromtimestamp(promo['activated_at']).strftime('%d.%m.%Y %H:%M')}\n"
+        else:
+            text += "<i>Промокодов пока нет</i>"
 
-    await q.message.reply_text(text, parse_mode="HTML")
+        await q.message.reply_text(text, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error in on_admin_stats: {e}")
+        await q.message.reply_text(f"❌ Ошибка при получении статистики: {e}")
 
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
