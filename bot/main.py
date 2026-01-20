@@ -75,9 +75,10 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("⛔ Доступ запрещён")
         return
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎟 Промокод", callback_data="admin_promo")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")],
-        [InlineKeyboardButton("🧩 Подраздел 1", callback_data="admin_stub")],
+        [InlineKeyboardButton("➕ Создать промокод",
+                              callback_data="admin_promo")],
+        [InlineKeyboardButton("ℹ️ Показать статистику",
+                              callback_data="admin_stats")],
     ])
     await q.message.reply_text("🛠 Администрирование", reply_markup=kb)
 
@@ -87,8 +88,10 @@ async def on_admin_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("7 дней", callback_data="promo_days_7"), InlineKeyboardButton(
-            "30 дней", callback_data="promo_days_30")],
-        [InlineKeyboardButton("60 дней", callback_data="promo_days_60"), InlineKeyboardButton(
+            "15 дней", callback_data="promo_days_15")],
+        [InlineKeyboardButton("30 дней", callback_data="promo_days_30"), InlineKeyboardButton(
+            "60 дней", callback_data="promo_days_60")],
+        [InlineKeyboardButton("90 дней", callback_data="promo_days_90"), InlineKeyboardButton(
             "365 дней", callback_data="promo_days_365")],
     ])
     await q.message.reply_text("🎟 Выберите срок промокода", reply_markup=kb)
@@ -106,7 +109,15 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     days = int(q.data.split('_')[-1])
     code = generate_promo(days)
-    await q.message.reply_text(f"✅ Промокод создан:\n<code>{code}</code>", parse_mode="HTML")
+    text = (
+        f"✅ Промокод создан:\n"
+        f"<code>{code}</code>\n\n"
+        f"📝 Как воспользоваться:\n"
+        f"1. Нажмите 🎟 Ввести промокод в главном меню\n"
+        f"2. Отправьте код <code>{code}</code>\n"
+        f"3. Промокод активирует доступ на {days} дней"
+    )
+    await q.message.reply_text(text, parse_mode="HTML")
 
 
 async def stub(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -137,9 +148,24 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.message.reply_text("Активация промокодов будет добавлена позже")
 
 
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_admin(user_id):
+        await update.message.reply_text("⛔ Доступ запрещён")
+        return
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➕ Создать промокод",
+                              callback_data="admin_promo")],
+        [InlineKeyboardButton("ℹ️ Показать статистику",
+                              callback_data="admin_stats")],
+    ])
+    await update.message.reply_text("🛠 Администрирование", reply_markup=kb)
+
+
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("admin", admin_command))
     app.add_handler(CallbackQueryHandler(
         on_admin_panel, pattern="^admin_panel$"))
     app.add_handler(CallbackQueryHandler(
