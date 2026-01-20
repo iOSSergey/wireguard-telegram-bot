@@ -348,6 +348,11 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         document=config.encode(),
         filename=filename,
         caption="✅ Ваш конфигурационный файл WireGuard.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📡 Как установить",
+                                  callback_data="how_install")]
+        ]),
+    )
     )
 
 
