@@ -114,6 +114,8 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                               callback_data="admin_promo")],
         [InlineKeyboardButton("ℹ️ Показать статистику",
                               callback_data="admin_stats")],
+        [InlineKeyboardButton(
+            "◀️ Назад в меню", callback_data="back_to_main")],
     ])
     await q.message.reply_text("🛠 Администрирование", reply_markup=kb)
 
@@ -131,6 +133,7 @@ async def on_admin_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "60 дней", callback_data="promo_days_60")],
         [InlineKeyboardButton("90 дней", callback_data="promo_days_90"), InlineKeyboardButton(
             "365 дней", callback_data="promo_days_365")],
+        [InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")],
     ])
     await q.message.reply_text("🎟 Выберите срок промокода", reply_markup=kb)
 
@@ -159,7 +162,11 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"2. Отправьте код <code>{code}</code>\n"
         f"3. Промокод активирует доступ на {days} дней"
     )
-    await q.message.reply_text(text, parse_mode="HTML")
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➕ Создать еще", callback_data="admin_promo")],
+        [InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")],
+    ])
+    await q.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
 
 
 async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -188,7 +195,10 @@ async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text += "<i>Промокодов пока нет</i>"
 
-        await q.message.reply_text(text, parse_mode="HTML")
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")],
+        ])
+        await q.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
     except Exception as e:
         logger.error(f"Error in on_admin_stats: {e}")
         await q.message.reply_text(f"❌ Ошибка при получении статистики: {e}")
@@ -287,6 +297,28 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.message.reply_text("Активация промокодов будет добавлена позже")
 
 
+async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Возврат в главное меню"""
+    q = update.callback_query
+    await q.answer()
+
+    text = (
+        f"👋 Привет!\n"
+        f"Я <b>{BOT_NAME}</b> — помогу настроить твой VPN.\n\n"
+        "💠 Что я умею:\n"
+        "• сделать защищённый VPN-канал\n"
+        "• выдать конфигурацию WireGuard\n"
+        "• помочь подключиться\n\n"
+        "👇 Нажмите <b>/vpn</b>, чтобы получить доступ."
+    )
+
+    await q.message.reply_text(
+        text=text,
+        parse_mode="HTML",
+        reply_markup=main_keyboard(q.from_user.id),
+    )
+
+
 # ===== Commands =====
 
 async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -349,6 +381,8 @@ def main():
         on_promo_days, pattern="^promo_days_"))
     app.add_handler(CallbackQueryHandler(
         on_admin_stats, pattern="^admin_stats$"))
+    app.add_handler(CallbackQueryHandler(
+        on_back_to_main, pattern="^back_to_main$"))
     app.add_handler(CallbackQueryHandler(
         on_get_access, pattern="^get_access$"))
     app.add_handler(CallbackQueryHandler(
