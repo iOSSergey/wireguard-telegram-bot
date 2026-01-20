@@ -115,7 +115,7 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("ℹ️ Показать статистику",
                               callback_data="admin_stats")],
         [InlineKeyboardButton(
-            "◀️ Назад в меню", callback_data="back_to_main")],
+            "🏠 Главное меню", callback_data="back_to_main")],
     ])
     await q.message.reply_text("🛠 Администрирование", reply_markup=kb)
 
