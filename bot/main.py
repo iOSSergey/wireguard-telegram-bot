@@ -107,6 +107,7 @@ def main_keyboard(user_id=None):
             "📡 Как установить", callback_data="how_install")],
         [InlineKeyboardButton("🤝 Поддержка", callback_data="support"), InlineKeyboardButton(
             "🎟 Ввести промокод", callback_data="promo")],
+        [InlineKeyboardButton("❓ FAQ", callback_data="faq")],
     ]
     if user_id and is_admin(user_id):
         buttons.append([InlineKeyboardButton(
@@ -362,6 +363,29 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def on_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    text = (
+        "❓ <b>Часто задаваемые вопросы</b>\n\n"
+        "<b>Как получить доступ к VPN?</b>\n"
+        "Активируйте промокод или используйте команду /vpn для получения конфигурации.\n\n"
+        "<b>Как установить WireGuard?</b>\n"
+        "Нажмите '📡 Как установить' в главном меню для получения инструкции.\n\n"
+        "<b>Что делать если доступ истёк?</b>\n"
+        "Активируйте новый промокод через '🎟 Ввести промокод'.\n\n"
+        "<b>Как проверить статус доступа?</b>\n"
+        "Используйте команду /status или нажмите 'ℹ️ Мой доступ'.\n\n"
+        "<b>Как удалить VPN?</b>\n"
+        "Используйте команду /remove для обращения в поддержку."
+    )
+
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await update.callback_query.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+
+
 async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Return to main menu"""
     q = update.callback_query
@@ -571,15 +595,15 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
+
     msg = "⚠️ <b>Удаление VPN доступа</b>\n\n"
     msg += "Для удаления VPN доступа обратитесь в поддержку.\n"
-    
+
     if SUPPORT_TG_USERNAME:
         msg += f"Напишите нам: {SUPPORT_TG_USERNAME}"
     else:
         msg += "Контакт поддержки не настроен."
-    
+
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
     ])
@@ -674,6 +698,7 @@ def main():
         on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
+    app.add_handler(CallbackQueryHandler(on_faq, pattern="^faq$"))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_promo_code))
     app.run_polling()
