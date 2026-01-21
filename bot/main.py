@@ -412,6 +412,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Activate promo code
     days = promo['days']
     user_id = update.effective_user.id
+    user_name = update.effective_user.full_name or update.effective_user.username or "client"
 
     # Get current user
     peer = storage.get_peer_by_telegram_id(user_id)
@@ -444,13 +445,27 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     else:
-        # Create new user with access
-        await update.message.reply_text(
-            f"✅ <b>Промокод активирован!</b>\n\n"
-            f"Вам предоставлен доступ на {days} дней.\n\n"
-            f"Используйте команду /vpn для получения конфигурации.",
-            parse_mode="HTML"
-        )
+        # Create new peer with expiration
+        expires_at = int(time.time()) + (days * 24 * 60 * 60)
+        try:
+            config_path = get_or_create_peer_and_config(
+                user_id, user_name, expires_at)
+            expires_date = datetime.fromtimestamp(
+                expires_at).strftime('%d.%m.%Y %H:%M')
+            await update.message.reply_text(
+                f"✅ <b>Промокод активирован!</b>\n\n"
+                f"Вам предоставлен доступ на {days} дней до {expires_date}.\n\n"
+                f"Используйте команду /vpn для получения конфигурации.",
+                parse_mode="HTML"
+            )
+            logger.info(
+                f"Created new peer for user {user_id} with {days} days access")
+        except ProvisionError as e:
+            await update.message.reply_text(
+                f"❌ Ошибка при создании конфигурации: {e}"
+            )
+            logger.error(f"Failed to create peer for user {user_id}: {e}")
+            return
 
     # Mark promo code as used
     storage.activate_promo_code(code, user_id)
