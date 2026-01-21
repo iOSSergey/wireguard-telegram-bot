@@ -332,7 +332,6 @@ async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     context.user_data['waiting_for_promo'] = True
-    logger.info(f"User {update.effective_user.id} started promo code entry")
     await update.callback_query.message.reply_text(
         "🎟 <b>Введите промокод</b>\n\n"
         "Промокод имеет формат: XX-XXXX-XXD\n"
@@ -366,16 +365,12 @@ async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Promo code activation handler"""
-    logger.info(
-        f"handle_promo_code called by user {update.effective_user.id}, waiting_for_promo={context.user_data.get('waiting_for_promo')}")
-
     if not context.user_data.get('waiting_for_promo'):
         return
 
     context.user_data['waiting_for_promo'] = False
     # Convert to uppercase for consistency (case-insensitive)
     code = update.message.text.strip().upper()
-    logger.info(f"Processing promo code: {code}")
 
     # Check promo code format
     if not re.match(r'^[A-Z0-9]{2}-[A-Z]{4}-\d+D$', code):
