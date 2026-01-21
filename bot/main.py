@@ -541,7 +541,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             msg += "Используйте промокод для активации доступа."
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+            [InlineKeyboardButton(
+                "🏠 Главное меню", callback_data="back_to_main")],
         ])
         await update.message.reply_text(msg, reply_markup=kb)
         return
@@ -570,40 +571,19 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    devices = storage.get_peers_by_telegram_id(user_id)
     
-    if not devices:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
-        ])
-        await update.message.reply_text(
-            "❌ У вас нет активного доступа для удаления.",
-            reply_markup=kb
-        )
-        return
-
-    peer = devices[0]
+    msg = "⚠️ <b>Удаление VPN доступа</b>\n\n"
+    msg += "Для удаления VPN доступа обратитесь в поддержку.\n"
     
-    try:
-        # Disable peer in WireGuard
-        wg.disable_peer(peer["public_key"])
-        # Delete from database
-        storage.delete_peer(user_id)
-        
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
-        ])
-        await update.message.reply_text(
-            "✅ VPN доступ успешно удалён.\n\n"
-            "Вы можете создать новый доступ с помощью промокода.",
-            reply_markup=kb
-        )
-        logger.info(f"User {user_id} removed their VPN access")
-    except Exception as e:
-        logger.error(f"Failed to remove peer for user {user_id}: {e}")
-        await update.message.reply_text(
-            f"❌ Ошибка при удалении доступа: {e}"
-        )
+    if SUPPORT_TG_USERNAME:
+        msg += f"Напишите нам: {SUPPORT_TG_USERNAME}"
+    else:
+        msg += "Контакт поддержки не настроен."
+    
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await update.message.reply_text(msg, parse_mode="HTML", reply_markup=kb)
 
 
 async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
