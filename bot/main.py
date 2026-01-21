@@ -434,7 +434,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Enable peer in WireGuard if it was disabled
         if not peer['enabled']:
             try:
-                wg.enable_peer(peer['public_key'])
+                wg.enable_peer(peer['public_key'], peer['ip'])
                 storage.set_enabled(peer['id'], True)
                 logger.info(
                     f"Re-enabled peer for user {user_id} after promo activation")
