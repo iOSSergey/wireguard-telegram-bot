@@ -76,9 +76,13 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     if not peers:
         return
 
+    logger.info("Found %d expired peer(s) to disable", len(peers))
     for peer in peers:
         try:
             wg.disable_peer(peer["public_key"])
+            storage.set_enabled(peer["id"], False)
+            logger.info("Disabled expired peer: %s (IP: %s)",
+                        peer["public_key"][:16], peer["ip"])
         except wg.WireGuardError as e:
             logger.error(
                 "Failed to disable expired peer %s (%s): %s",
@@ -503,6 +507,7 @@ def main():
     # Starts after 60 seconds, then runs every 1800 seconds (30 minutes)
     if app.job_queue:
         app.job_queue.run_repeating(expire_peers_job, interval=1800, first=60)
+        logger.info("Expiry checking job scheduled: runs every 30 minutes")
     else:
         logger.warning("JobQueue is not available, expiry checking disabled")
 
