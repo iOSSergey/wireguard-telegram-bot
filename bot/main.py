@@ -508,6 +508,104 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===== Commands =====
 
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        f"📖 <b>Справка {BOT_NAME}</b>\n\n"
+        "<b>Основные команды:</b>\n"
+        "/start - Главное меню\n"
+        "/vpn - Получить VPN конфигурацию\n"
+        "/status - Проверить статус доступа\n"
+        "/help - Показать эту справку\n"
+        "/remove - Удалить VPN доступ\n\n"
+        "<b>Возможности:</b>\n"
+        "• Безопасное VPN подключение\n"
+        "• Промокоды для активации доступа\n"
+        "• Автоматическое управление сроком действия\n"
+        "• Простая установка на всех устройствах"
+    )
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+
+
+async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    devices = storage.get_peers_by_telegram_id(user_id)
+    peer = devices[0] if devices else None
+
+    if not peer:
+        msg = "❌ Доступ не найден.\n\n"
+        if SUPPORT_TG_USERNAME:
+            msg += f"Обратитесь: {SUPPORT_TG_USERNAME}"
+        else:
+            msg += "Используйте промокод для активации доступа."
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+        ])
+        await update.message.reply_text(msg, reply_markup=kb)
+        return
+
+    status = "✅ Активен" if peer["enabled"] else "⛔ Отключён"
+
+    if peer["expires_at"]:
+        expires = datetime.fromtimestamp(
+            peer["expires_at"]).strftime("%d.%m.%Y %H:%M")
+        expires_text = f"📅 Действует до: {expires}"
+    else:
+        expires_text = "📅 Срок действия: без ограничения"
+
+    text = (
+        "ℹ️ Статус доступа\n\n"
+        f"{status}\n"
+        f"{expires_text}\n"
+        f"🌐 IP: {peer['ip']}"
+    )
+
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await update.message.reply_text(text, reply_markup=kb)
+
+
+async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    devices = storage.get_peers_by_telegram_id(user_id)
+    
+    if not devices:
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+        ])
+        await update.message.reply_text(
+            "❌ У вас нет активного доступа для удаления.",
+            reply_markup=kb
+        )
+        return
+
+    peer = devices[0]
+    
+    try:
+        # Disable peer in WireGuard
+        wg.disable_peer(peer["public_key"])
+        # Delete from database
+        storage.delete_peer(user_id)
+        
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+        ])
+        await update.message.reply_text(
+            "✅ VPN доступ успешно удалён.\n\n"
+            "Вы можете создать новый доступ с помощью промокода.",
+            reply_markup=kb
+        )
+        logger.info(f"User {user_id} removed their VPN access")
+    except Exception as e:
+        logger.error(f"Failed to remove peer for user {user_id}: {e}")
+        await update.message.reply_text(
+            f"❌ Ошибка при удалении доступа: {e}"
+        )
+
+
 async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     name = user.full_name or user.username or "client"
@@ -574,6 +672,9 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("remove", cmd_remove))
     app.add_handler(CommandHandler("admin", admin_command))
     app.add_handler(CallbackQueryHandler(
         on_admin_panel, pattern="^admin_panel$"))

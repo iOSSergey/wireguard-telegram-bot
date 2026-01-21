@@ -128,6 +128,16 @@ def set_enabled(telegram_id: int, enabled: bool):
     conn.close()
 
 
+def delete_peer(telegram_id: int):
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM peers WHERE telegram_id = ?",
+        (telegram_id,)
+    )
+    conn.commit()
+    conn.close()
+
+
 def get_peers_for_restore(now_ts: int):
     conn = get_db()
     cur = conn.execute(
