@@ -71,11 +71,9 @@ def restore_peers_on_startup():
 
 async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     """Periodic job to disable expired peers"""
-    logger.info("Running expiry check job")
     now_ts = int(time.time())
     peers = storage.get_expired_peers(now_ts)
     if not peers:
-        logger.info("No expired peers found")
         return
 
     logger.info("Found %d expired peer(s) to disable", len(peers))
@@ -426,6 +424,16 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_expires = int(time.time())
         new_expires = current_expires + (days * 24 * 60 * 60)
         storage.update_expiry(user_id, new_expires)
+
+        # Enable peer in WireGuard if it was disabled
+        if not peer['enabled']:
+            try:
+                wg.enable_peer(peer['public_key'])
+                storage.set_enabled(peer['id'], True)
+                logger.info(
+                    f"Re-enabled peer for user {user_id} after promo activation")
+            except wg.WireGuardError as e:
+                logger.error(f"Failed to enable peer for user {user_id}: {e}")
 
         expires_date = datetime.fromtimestamp(
             new_expires).strftime('%d.%m.%Y %H:%M')
