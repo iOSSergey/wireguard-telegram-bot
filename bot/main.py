@@ -277,7 +277,9 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption="✅ Ваш конфигурационный файл WireGuard.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📡 Как установить",
-                                  callback_data="how_install")]
+                                  callback_data="how_install")],
+            [InlineKeyboardButton("🏠 Главное меню",
+                                  callback_data="back_to_main")],
         ]),
     )
 
@@ -335,7 +337,7 @@ async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
     ])
-    
+
     if SUPPORT_TG_USERNAME:
         await update.callback_query.message.reply_text(
             f"🤝 Поддержка\n\nНапишите нам: {SUPPORT_TG_USERNAME}",
@@ -461,7 +463,8 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expires_date = datetime.fromtimestamp(
             new_expires).strftime('%d.%m.%Y %H:%M')
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+            [InlineKeyboardButton(
+                "🏠 Главное меню", callback_data="back_to_main")],
         ])
         await update.message.reply_text(
             f"✅ <b>Промокод активирован!</b>\n\n"
@@ -479,7 +482,8 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expires_date = datetime.fromtimestamp(
                 expires_at).strftime('%d.%m.%Y %H:%M')
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+                [InlineKeyboardButton(
+                    "🏠 Главное меню", callback_data="back_to_main")],
             ])
             await update.message.reply_text(
                 f"✅ <b>Промокод активирован!</b>\n\n"
@@ -533,7 +537,9 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption="✅ Ваш конфигурационный файл WireGuard.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📡 Как установить",
-                                  callback_data="how_install")]
+                                  callback_data="how_install")],
+            [InlineKeyboardButton("🏠 Главное меню",
+                                  callback_data="back_to_main")],
         ]),
     )
 
