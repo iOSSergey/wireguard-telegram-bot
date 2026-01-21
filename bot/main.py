@@ -107,7 +107,7 @@ def main_keyboard(user_id=None):
             "📡 Как установить", callback_data="how_install")],
         [InlineKeyboardButton("🤝 Поддержка", callback_data="support"), InlineKeyboardButton(
             "🎟 Ввести промокод", callback_data="promo")],
-        [InlineKeyboardButton("❓ FAQ", callback_data="faq")],
+        [InlineKeyboardButton("💬 Частые вопросы", callback_data="faq")],
     ]
     if user_id and is_admin(user_id):
         buttons.append([InlineKeyboardButton(
@@ -367,7 +367,7 @@ async def on_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     text = (
-        "❓ <b>Часто задаваемые вопросы</b>\n\n"
+        "💬 <b>Частые вопросы</b>\n\n"
         "<b>Как получить доступ к VPN?</b>\n"
         "Активируйте промокод или используйте команду /vpn для получения конфигурации.\n\n"
         "<b>Как установить WireGuard?</b>\n"
