@@ -185,12 +185,14 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Save promo code to database
     storage.save_promo_code(code, days, q.from_user.id)
 
+    # Send promo code as separate message for easy copying
+    await q.message.reply_text(f"<code>{code}</code>", parse_mode="HTML")
+
     text = (
-        f"✅ Промокод создан:\n"
-        f"<code>{code}</code>\n\n"
+        f"✅ Промокод создан на {days} дней\n\n"
         f"📝 Как воспользоваться:\n"
         f"1. Нажмите 🎟 Ввести промокод в главном меню\n"
-        f"2. Отправьте код <code>{code}</code>\n"
+        f"2. Отправьте промокод\n"
         f"3. Промокод активирует доступ на {days} дней"
     )
     kb = InlineKeyboardMarkup([
@@ -368,7 +370,6 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get('waiting_for_promo'):
         return
 
-    context.user_data['waiting_for_promo'] = False
     # Convert to uppercase for consistency (case-insensitive)
     code = update.message.text.strip().upper()
 
@@ -377,7 +378,8 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Неверный формат промокода.\n\n"
             "Промокод должен иметь формат: XX-XXXX-XXD\n"
-            "Например: AB-JULY-30D"
+            "Например: AB-JULY-30D\n\n"
+            "Попробуйте еще раз:"
         )
         return
 
@@ -408,6 +410,9 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning(
             f"Promo code mismatch: code={code}, code_days={code_days}, db_days={promo['days']}")
         return
+
+    # Reset flag only after successful validation
+    context.user_data['waiting_for_promo'] = False
 
     # Activate promo code
     days = promo['days']
