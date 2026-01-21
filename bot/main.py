@@ -80,7 +80,7 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     for peer in peers:
         try:
             wg.disable_peer(peer["public_key"])
-            storage.set_enabled(peer["id"], False)
+            storage.set_enabled(peer["telegram_id"], False)
             logger.info("Disabled expired peer: %s (IP: %s)",
                         peer["public_key"][:16], peer["ip"])
         except wg.WireGuardError as e:
@@ -430,7 +430,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not peer['enabled']:
             try:
                 wg.enable_peer(peer['public_key'], peer['ip'])
-                storage.set_enabled(peer['id'], True)
+                storage.set_enabled(user_id, True)
                 logger.info(
                     f"Re-enabled peer for user {user_id} after promo activation")
             except wg.WireGuardError as e:
