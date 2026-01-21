@@ -312,23 +312,40 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🌐 IP: {peer['ip']}"
     )
 
-    await query.message.reply_text(text)
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await query.message.reply_text(text, reply_markup=kb)
 
 
 async def on_how_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.message.reply_text(INSTALL_GUIDE_URL or "Недоступно")
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    await update.callback_query.message.reply_text(
+        INSTALL_GUIDE_URL or "Недоступно",
+        reply_markup=kb
+    )
 
 
 async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+    ])
+    
     if SUPPORT_TG_USERNAME:
         await update.callback_query.message.reply_text(
-            f"🤝 Поддержка\n\nНапишите нам: {SUPPORT_TG_USERNAME}"
+            f"🤝 Поддержка\n\nНапишите нам: {SUPPORT_TG_USERNAME}",
+            reply_markup=kb
         )
     else:
-        await update.callback_query.message.reply_text("🤝 Поддержка\n\nКонтакт не настроен")
+        await update.callback_query.message.reply_text(
+            "🤝 Поддержка\n\nКонтакт не настроен",
+            reply_markup=kb
+        )
 
 
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -443,11 +460,15 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         expires_date = datetime.fromtimestamp(
             new_expires).strftime('%d.%m.%Y %H:%M')
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+        ])
         await update.message.reply_text(
             f"✅ <b>Промокод активирован!</b>\n\n"
             f"Добавлено: {days} дней\n"
             f"Доступ продлён до: {expires_date}",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=kb
         )
     else:
         # Create new peer with expiration
@@ -457,11 +478,15 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 user_id, user_name, expires_at)
             expires_date = datetime.fromtimestamp(
                 expires_at).strftime('%d.%m.%Y %H:%M')
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
+            ])
             await update.message.reply_text(
                 f"✅ <b>Промокод активирован!</b>\n\n"
                 f"Вам предоставлен доступ на {days} дней до {expires_date}.\n\n"
                 f"Используйте команду /vpn для получения конфигурации.",
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=kb
             )
             logger.info(
                 f"Created new peer for user {user_id} with {days} days access")
