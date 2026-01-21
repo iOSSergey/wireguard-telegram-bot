@@ -71,9 +71,11 @@ def restore_peers_on_startup():
 
 async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     """Periodic job to disable expired peers"""
+    logger.info("Running expiry check job")
     now_ts = int(time.time())
     peers = storage.get_expired_peers(now_ts)
     if not peers:
+        logger.info("No expired peers found")
         return
 
     logger.info("Found %d expired peer(s) to disable", len(peers))
