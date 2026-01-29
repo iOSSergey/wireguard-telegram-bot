@@ -225,7 +225,26 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     days = int(q.data.split('_')[-1])
-    code = generate_promo(days).upper()  # Ensure uppercase
+    
+    # Generate unique promo code (retry if collision)
+    max_attempts = 10
+    code = None
+    for attempt in range(max_attempts):
+        candidate = generate_promo(days).upper()
+        # Check if code already exists
+        existing = storage.get_promo_code(candidate)
+        if not existing:
+            code = candidate
+            break
+    
+    if not code:
+        await q.message.reply_text(
+            "❌ Не удалось создать уникальный промокод. Попробуйте еще раз.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")]
+            ])
+        )
+        return
 
     # Save promo code to database
     storage.save_promo_code(code, days, q.from_user.id)
