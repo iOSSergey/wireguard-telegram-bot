@@ -6,6 +6,7 @@ import os
 import json
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 
 class VLESSError(Exception):
@@ -205,8 +206,11 @@ def generate_vless_link(uuid: str, user_name: str = None) -> str:
     else:
         display_name = XRAY_CONFIG_PREFIX
 
+    # URL-encode display name for proper handling of spaces and special characters
+    encoded_name = quote(display_name, safe='')
+
     # Build VLESS URL
     # Format: vless://UUID@SERVER:PORT?params#name
-    vless_url = f"vless://{uuid}@{XRAY_SERVER_ADDRESS}?{param_str}#{display_name}"
+    vless_url = f"vless://{uuid}@{XRAY_SERVER_ADDRESS}?{param_str}#{encoded_name}"
 
     return vless_url
