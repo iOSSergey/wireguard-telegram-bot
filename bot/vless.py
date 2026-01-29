@@ -80,7 +80,7 @@ def _find_vless_inbound(config: dict) -> dict:
 
 
 def _reload_xray() -> None:
-    """Reload Xray service after config change"""
+    """Restart Xray service after config change"""
     try:
         # First validate configuration
         result = subprocess.run(
@@ -93,24 +93,24 @@ def _reload_xray() -> None:
         if result.returncode != 0:
             raise VLESSError(f"Xray config validation failed: {result.stderr}")
 
-        # Reload service
+        # Restart service (Xray doesn't support reload)
         subprocess.run(
-            ["systemctl", "reload", XRAY_SERVICE],
+            ["systemctl", "restart", XRAY_SERVICE],
             check=True,
             capture_output=True,
             timeout=10
         )
     except subprocess.TimeoutExpired:
-        raise VLESSError("Xray reload timeout")
+        raise VLESSError("Xray restart timeout")
     except subprocess.CalledProcessError as e:
-        raise VLESSError(f"Failed to reload Xray: {e.stderr}")
+        raise VLESSError(f"Failed to restart Xray: {e.stderr}")
     except Exception as e:
-        raise VLESSError(f"Xray reload error: {e}")
+        raise VLESSError(f"Xray restart error: {e}")
 
 
 def enable_client(uuid: str, email: str = None) -> None:
     """
-    Add VLESS client to Xray config and reload service.
+    Add VLESS client to Xray config and restart service.
 
     Args:
         uuid: Client UUID
@@ -140,13 +140,13 @@ def enable_client(uuid: str, email: str = None) -> None:
     # Save configuration
     _save_config(config)
 
-    # Reload Xray
+    # Restart Xray
     _reload_xray()
 
 
 def disable_client(uuid: str) -> None:
     """
-    Remove VLESS client from Xray config and reload service.
+    Remove VLESS client from Xray config and restart service.
 
     Args:
         uuid: Client UUID
@@ -167,7 +167,7 @@ def disable_client(uuid: str) -> None:
     # Save configuration
     _save_config(config)
 
-    # Reload Xray
+    # Restart Xray
     _reload_xray()
 
 
