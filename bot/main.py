@@ -623,46 +623,52 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name or update.effective_user.username or "client"
 
-    # Check protocol policy to determine which peer to extend
+    # Check protocol policy for creating new peers (if needed)
     policy = storage.get_protocol_policy()
     primary = policy['primary_protocol']
 
-    if primary == 'wireguard':
-        # Get WireGuard peer
-        peer = storage.get_peer_by_telegram_id(user_id)
-    else:  # vless
-        # Get VLESS peer
-        peer = storage.get_vless_peer_by_telegram_id(user_id)
+    # Check both WireGuard and VLESS peers
+    wg_peer = storage.get_peer_by_telegram_id(user_id)
+    vless_peer = storage.get_vless_peer_by_telegram_id(user_id)
 
-    if peer:
-        # Update expiration date
-        current_expires = peer['expires_at'] or int(time.time())
-        # If expired, start from current time
-        if current_expires < int(time.time()):
-            current_expires = int(time.time())
-        new_expires = current_expires + (days * 24 * 60 * 60)
+    # If user has any peer, extend it
+    if wg_peer or vless_peer:
+        new_expires = None
 
-        if primary == 'wireguard':
+        # Extend WireGuard peer if exists
+        if wg_peer:
+            current_expires = wg_peer['expires_at'] or int(time.time())
+            if current_expires < int(time.time()):
+                current_expires = int(time.time())
+            new_expires = current_expires + (days * 24 * 60 * 60)
+
             storage.update_expiry(user_id, new_expires)
 
             # Enable peer in WireGuard if it was disabled
-            if not peer['enabled']:
+            if not wg_peer['enabled']:
                 try:
-                    wg.enable_peer(peer['public_key'], peer['ip'])
+                    wg.enable_peer(wg_peer['public_key'], wg_peer['ip'])
                     storage.set_enabled(user_id, True)
                     logger.info(
                         f"Re-enabled WireGuard peer for user {user_id} after promo activation")
                 except wg.WireGuardError as e:
                     logger.error(
                         f"Failed to enable WireGuard peer for user {user_id}: {e}")
-        else:  # vless
+
+        # Extend VLESS peer if exists
+        if vless_peer:
+            current_expires = vless_peer['expires_at'] or int(time.time())
+            if current_expires < int(time.time()):
+                current_expires = int(time.time())
+            new_expires = current_expires + (days * 24 * 60 * 60)
+
             storage.update_vless_expiry(user_id, new_expires)
 
             # Enable peer in Xray if it was disabled
-            if not peer['enabled']:
+            if not vless_peer['enabled']:
                 try:
                     email = f"tg_{user_id}"
-                    vless.enable_client(peer['uuid'], email)
+                    vless.enable_client(vless_peer['uuid'], email)
                     storage.set_vless_enabled(user_id, True)
                     logger.info(
                         f"Re-enabled VLESS client for user {user_id} after promo activation")
