@@ -512,17 +512,13 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     context.user_data['waiting_for_promo'] = True
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("◀️ Назад", callback_data="back_to_main")],
-    ])
-
     await update.callback_query.message.reply_text(
         "🎟 <b>Введите промокод</b>\n\n"
         "Промокод имеет формат: XX-XXXX-XXD\n"
         "Например: AB-JULY-30D\n\n"
-        "Отправьте промокод следующим сообщением.",
-        parse_mode="HTML",
-        reply_markup=kb
+        "Отправьте промокод следующим сообщением.\n"
+        "Нажмите /cancel, чтобы отменить ввод.",
+        parse_mode="HTML"
     )
 
 
