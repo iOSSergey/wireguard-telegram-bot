@@ -225,7 +225,7 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     days = int(q.data.split('_')[-1])
-    
+
     # Generate unique promo code (retry if collision)
     max_attempts = 10
     code = None
@@ -236,7 +236,7 @@ async def on_promo_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not existing:
             code = candidate
             break
-    
+
     if not code:
         await q.message.reply_text(
             "❌ Не удалось создать уникальный промокод. Попробуйте еще раз.",
@@ -511,12 +511,18 @@ async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     context.user_data['waiting_for_promo'] = True
+    
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Отменить", callback_data="cancel_promo")],
+    ])
+    
     await update.callback_query.message.reply_text(
         "🎟 <b>Введите промокод</b>\n\n"
         "Промокод имеет формат: XX-XXXX-XXD\n"
         "Например: AB-JULY-30D\n\n"
-        "Отправьте промокод следующим сообщением.",
-        parse_mode="HTML"
+        "Отправьте промокод следующим сообщением или используйте /cancel для отмены.",
+        parse_mode="HTML",
+        reply_markup=kb
     )
 
 
@@ -541,6 +547,20 @@ async def on_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
     ])
     await update.callback_query.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+
+
+async def on_cancel_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel promo code input"""
+    q = update.callback_query
+    await q.answer()
+    
+    # Clear waiting flag
+    context.user_data['waiting_for_promo'] = False
+    
+    await q.message.reply_text(
+        "❌ Ввод промокода отменен.",
+        reply_markup=main_keyboard(q.from_user.id)
+    )
 
 
 async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -743,6 +763,21 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
 
 
+async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel current operation (e.g., promo code input)"""
+    if context.user_data.get('waiting_for_promo'):
+        context.user_data['waiting_for_promo'] = False
+        await update.message.reply_text(
+            "❌ Ввод промокода отменен.",
+            reply_markup=main_keyboard(update.effective_user.id)
+        )
+    else:
+        await update.message.reply_text(
+            "Нет активных операций для отмены.",
+            reply_markup=main_keyboard(update.effective_user.id)
+        )
+
+
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     devices = storage.get_peers_by_telegram_id(user_id)
@@ -902,6 +937,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("vpn", cmd_vpn))
     app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("remove", cmd_remove))
     app.add_handler(CommandHandler("admin", admin_command))
@@ -929,6 +965,7 @@ def main():
         on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
+    app.add_handler(CallbackQueryHandler(on_cancel_promo, pattern="^cancel_promo$"))
     app.add_handler(CallbackQueryHandler(on_faq, pattern="^faq$"))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_promo_code))
