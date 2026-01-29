@@ -422,7 +422,13 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ttl_days=30,
             )
 
-            # Send as text with vless:// link
+            # Send vless:// link as separate message
+            await query.message.reply_text(
+                f"<code>{vless_link}</code>",
+                parse_mode="HTML"
+            )
+
+            # Send instruction in second message
             instruction = (
                 "✅ Ваша конфигурация VLESS Reality\n\n"
                 "<b>Инструкция:</b>\n"
@@ -447,7 +453,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• <a href='https://github.com/Fndroid/clash_for_windows_pkg/releases'>Clash</a>"
             )
             await query.message.reply_text(
-                f"<code>{vless_link}</code>\n\n{instruction}",
+                instruction,
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("📡 Как установить",
@@ -895,7 +901,13 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ttl_days=30,
             )
 
-            # Send as text with vless:// link
+            # Send vless:// link as separate message
+            await update.message.reply_text(
+                f"<code>{vless_link}</code>",
+                parse_mode="HTML"
+            )
+
+            # Send instruction in second message
             instruction = (
                 "✅ Ваша конфигурация VLESS Reality\n\n"
                 "<b>Инструкция:</b>\n"
@@ -920,7 +932,7 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• <a href='https://github.com/Fndroid/clash_for_windows_pkg/releases'>Clash</a>"
             )
             await update.message.reply_text(
-                f"<code>{vless_link}</code>\n\n{instruction}",
+                instruction,
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("📡 Как установить",
