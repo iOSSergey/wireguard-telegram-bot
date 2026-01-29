@@ -511,16 +511,16 @@ async def on_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     context.user_data['waiting_for_promo'] = True
-    
+
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Отменить", callback_data="cancel_promo")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
     ])
-    
+
     await update.callback_query.message.reply_text(
         "🎟 <b>Введите промокод</b>\n\n"
         "Промокод имеет формат: XX-XXXX-XXD\n"
         "Например: AB-JULY-30D\n\n"
-        "Отправьте промокод следующим сообщением или используйте /cancel для отмены.",
+        "Нажмите /cancel для отмены.",
         parse_mode="HTML",
         reply_markup=kb
     )
@@ -549,24 +549,13 @@ async def on_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
 
 
-async def on_cancel_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cancel promo code input"""
-    q = update.callback_query
-    await q.answer()
-    
-    # Clear waiting flag
-    context.user_data['waiting_for_promo'] = False
-    
-    await q.message.reply_text(
-        "❌ Ввод промокода отменен.",
-        reply_markup=main_keyboard(q.from_user.id)
-    )
-
-
 async def on_back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Return to main menu"""
     q = update.callback_query
     await q.answer()
+
+    # Clear any pending operations
+    context.user_data['waiting_for_promo'] = False
 
     text = (
         f"👋 Привет!\n"
@@ -965,7 +954,6 @@ def main():
         on_how_install, pattern="^how_install$"))
     app.add_handler(CallbackQueryHandler(on_support, pattern="^support$"))
     app.add_handler(CallbackQueryHandler(on_promo, pattern="^promo$"))
-    app.add_handler(CallbackQueryHandler(on_cancel_promo, pattern="^cancel_promo$"))
     app.add_handler(CallbackQueryHandler(on_faq, pattern="^faq$"))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_promo_code))
