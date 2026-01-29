@@ -146,6 +146,8 @@ async def on_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
                               callback_data="admin_promo")],
         [InlineKeyboardButton("ℹ️ Показать статистику",
                               callback_data="admin_stats")],
+        [InlineKeyboardButton("🔧 Управление протоколами",
+                              callback_data="admin_protocols")],
         [InlineKeyboardButton(
             "🏠 Главное меню", callback_data="back_to_main")],
     ])
@@ -236,6 +238,161 @@ async def on_admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error in on_admin_stats: {e}")
         await q.message.reply_text(f"❌ Ошибка при получении статистики: {e}")
+
+
+async def on_admin_protocols(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show protocol management panel"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        await q.message.reply_text("⛔ Доступ запрещён")
+        return
+
+    policy = storage.get_protocol_policy()
+
+    # Build status text
+    wg_status = "✅" if policy['wireguard_enabled'] else "⚪"
+    vless_status = "✅" if policy['vless_enabled'] else "⚪"
+
+    wg_label = "WireGuard"
+    vless_label = "VLESS Reality"
+
+    if policy['primary_protocol'] == 'wireguard':
+        wg_label += " [Primary]"
+    else:
+        vless_label += " [Primary]"
+
+    text = (
+        "🔧 <b>Управление протоколами</b>\n\n"
+        f"{wg_status} {wg_label}\n"
+        f"{vless_status} {vless_label}\n\n"
+        "<i>Primary протокол выдается пользователям по умолчанию</i>"
+    )
+
+    # Build keyboard
+    kb = []
+
+    # Toggle buttons
+    if policy['wireguard_enabled']:
+        if policy['primary_protocol'] != 'wireguard' or policy['vless_enabled']:
+            kb.append([InlineKeyboardButton("⚪ Выключить WireGuard",
+                      callback_data="proto_disable_wireguard")])
+    else:
+        kb.append([InlineKeyboardButton("✅ Включить WireGuard",
+                  callback_data="proto_enable_wireguard")])
+
+    if policy['vless_enabled']:
+        if policy['primary_protocol'] != 'vless' or policy['wireguard_enabled']:
+            kb.append([InlineKeyboardButton("⚪ Выключить VLESS",
+                      callback_data="proto_disable_vless")])
+    else:
+        kb.append([InlineKeyboardButton("✅ Включить VLESS",
+                  callback_data="proto_enable_vless")])
+
+    # Set primary buttons (only for enabled protocols)
+    primary_buttons = []
+    if policy['wireguard_enabled'] and policy['primary_protocol'] != 'wireguard':
+        primary_buttons.append(InlineKeyboardButton(
+            "🎯 WireGuard Primary", callback_data="proto_primary_wireguard"))
+    if policy['vless_enabled'] and policy['primary_protocol'] != 'vless':
+        primary_buttons.append(InlineKeyboardButton(
+            "🎯 VLESS Primary", callback_data="proto_primary_vless"))
+
+    if primary_buttons:
+        kb.append(primary_buttons)
+
+    kb.append([InlineKeyboardButton("◀️ Назад", callback_data="admin_panel")])
+
+    await q.message.reply_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(kb))
+
+
+async def on_proto_enable_wireguard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Enable WireGuard protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+    storage.set_protocol_policy(
+        True, policy['vless_enabled'], policy['primary_protocol'])
+    await on_admin_protocols(update, context)
+
+
+async def on_proto_enable_vless(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Enable VLESS protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+    storage.set_protocol_policy(
+        policy['wireguard_enabled'], True, policy['primary_protocol'])
+    await on_admin_protocols(update, context)
+
+
+async def on_proto_disable_wireguard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Disable WireGuard protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+
+    try:
+        # If WireGuard is primary, switch to VLESS first
+        primary = 'vless' if policy['primary_protocol'] == 'wireguard' else policy['primary_protocol']
+        storage.set_protocol_policy(False, policy['vless_enabled'], primary)
+        await on_admin_protocols(update, context)
+    except ValueError as e:
+        await q.answer(f"❌ {e}", show_alert=True)
+
+
+async def on_proto_disable_vless(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Disable VLESS protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+
+    try:
+        # If VLESS is primary, switch to WireGuard first
+        primary = 'wireguard' if policy['primary_protocol'] == 'vless' else policy['primary_protocol']
+        storage.set_protocol_policy(
+            policy['wireguard_enabled'], False, primary)
+        await on_admin_protocols(update, context)
+    except ValueError as e:
+        await q.answer(f"❌ {e}", show_alert=True)
+
+
+async def on_proto_primary_wireguard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set WireGuard as primary protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+    storage.set_protocol_policy(
+        policy['wireguard_enabled'], policy['vless_enabled'], 'wireguard')
+    await on_admin_protocols(update, context)
+
+
+async def on_proto_primary_vless(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Set VLESS as primary protocol"""
+    q = update.callback_query
+    await q.answer()
+    if not is_admin(q.from_user.id):
+        return
+
+    policy = storage.get_protocol_policy()
+    storage.set_protocol_policy(
+        policy['wireguard_enabled'], policy['vless_enabled'], 'vless')
+    await on_admin_protocols(update, context)
 
 
 async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -688,6 +845,20 @@ def main():
         on_promo_days, pattern="^promo_days_"))
     app.add_handler(CallbackQueryHandler(
         on_admin_stats, pattern="^admin_stats$"))
+    app.add_handler(CallbackQueryHandler(
+        on_admin_protocols, pattern="^admin_protocols$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_enable_wireguard, pattern="^proto_enable_wireguard$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_enable_vless, pattern="^proto_enable_vless$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_disable_wireguard, pattern="^proto_disable_wireguard$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_disable_vless, pattern="^proto_disable_vless$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_primary_wireguard, pattern="^proto_primary_wireguard$"))
+    app.add_handler(CallbackQueryHandler(
+        on_proto_primary_vless, pattern="^proto_primary_vless$"))
     app.add_handler(CallbackQueryHandler(
         on_back_to_main, pattern="^back_to_main$"))
     app.add_handler(CallbackQueryHandler(
