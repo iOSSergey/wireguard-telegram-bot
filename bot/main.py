@@ -9,7 +9,7 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-from bot import storage, wg
+from bot import storage, wg, vless
 from bot.provision import get_or_create_peer_and_config, ProvisionError
 from bot.vless_provision import get_or_create_vless_config, VLESSProvisionError
 
@@ -48,57 +48,95 @@ def is_admin(user_id: int) -> bool:
 def restore_peers_on_startup():
     storage.init_db()
     now_ts = int(time.time())
-    peers = storage.get_peers_for_restore(now_ts)
-
-    if not peers:
-        logger.info("No peers to restore on startup")
-        return
-
-    restored = 0
-    for peer in peers:
-        try:
-            wg.enable_peer(peer["public_key"], peer["ip"])
-            restored += 1
-        except wg.WireGuardError as e:
-            logger.error(
-                "Failed to enable peer %s (%s): %s",
-                peer["public_key"],
-                peer["ip"],
-                e,
-            )
-
-    logger.info("Restored %d peers into WireGuard", restored)
+    
+    # Get protocol policy to decide what to restore
+    policy = storage.get_protocol_policy()
+    
+    # Restore WireGuard peers if enabled
+    if policy["wireguard_enabled"]:
+        peers = storage.get_peers_for_restore(now_ts)
+        if peers:
+            restored = 0
+            for peer in peers:
+                try:
+                    wg.enable_peer(peer["public_key"], peer["ip"])
+                    restored += 1
+                except wg.WireGuardError as e:
+                    logger.error(
+                        "Failed to enable WireGuard peer %s (%s): %s",
+                        peer["public_key"],
+                        peer["ip"],
+                        e,
+                    )
+            logger.info("Restored %d WireGuard peers", restored)
+        else:
+            logger.info("No WireGuard peers to restore")
+    
+    # Restore VLESS peers if enabled
+    if policy["vless_enabled"]:
+        vless_peers = storage.get_vless_peers_for_restore(now_ts)
+        if vless_peers:
+            restored = 0
+            for peer in vless_peers:
+                try:
+                    vless.enable_client(peer["uuid"], peer["name"])
+                    restored += 1
+                except vless.VLESSError as e:
+                    logger.error(
+                        "Failed to enable VLESS client %s (%s): %s",
+                        peer["uuid"],
+                        peer["name"],
+                        e,
+                    )
+            logger.info("Restored %d VLESS clients", restored)
+        else:
+            logger.info("No VLESS clients to restore")
 
 
 async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     """Periodic job to disable expired peers"""
     now_ts = int(time.time())
-    peers = storage.get_expired_peers(now_ts)
-    if not peers:
-        return
-
-    logger.info("Found %d expired peer(s) to disable", len(peers))
-    for peer in peers:
-        try:
-            wg.disable_peer(peer["public_key"])
-            storage.set_enabled(peer["telegram_id"], False)
-            logger.info("Disabled expired peer: %s (IP: %s)",
-                        peer["public_key"][:16], peer["ip"])
-        except wg.WireGuardError as e:
-            logger.error(
-                "Failed to disable expired peer %s (%s): %s",
-                peer["public_key"],
-                peer["ip"],
-                e,
-            )
-            continue
-
-        storage.set_enabled(peer["telegram_id"], False)
-        logger.info(
-            "Peer %s (tg=%s) disabled due to expiry",
-            peer["ip"],
-            peer["telegram_id"],
-        )
+    
+    # Get protocol policy to decide what to check
+    policy = storage.get_protocol_policy()
+    
+    # Expire WireGuard peers if enabled
+    if policy["wireguard_enabled"]:
+        peers = storage.get_expired_peers(now_ts)
+        if peers:
+            logger.info("Found %d expired WireGuard peer(s) to disable", len(peers))
+            for peer in peers:
+                try:
+                    wg.disable_peer(peer["public_key"])
+                    storage.set_enabled(peer["telegram_id"], False)
+                    logger.info("Disabled expired WireGuard peer: %s (IP: %s)",
+                                peer["public_key"][:16], peer["ip"])
+                except wg.WireGuardError as e:
+                    logger.error(
+                        "Failed to disable expired WireGuard peer %s (%s): %s",
+                        peer["public_key"],
+                        peer["ip"],
+                        e,
+                    )
+    
+    # Expire VLESS peers if enabled
+    if policy["vless_enabled"]:
+        vless_peers = storage.get_expired_vless_peers(now_ts)
+        if vless_peers:
+            logger.info("Found %d expired VLESS client(s) to disable", len(vless_peers))
+            for peer in vless_peers:
+                try:
+                    vless.disable_client(peer["uuid"])
+                    storage.set_vless_enabled(peer["telegram_id"], False)
+                    logger.info("Disabled expired VLESS client: %s (%s)",
+                                peer["uuid"], peer["name"])
+                except vless.VLESSError as e:
+                    logger.error(
+                        "Failed to disable expired VLESS client %s (%s): %s",
+                        peer["uuid"],
+                        peer["name"],
+                        e,
+                    )
 
 
 def main_keyboard(user_id=None):
