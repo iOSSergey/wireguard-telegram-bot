@@ -454,7 +454,7 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         has_access = len(devices) > 0
     else:  # vless
         peer = storage.get_vless_peer_by_telegram_id(user.id)
-        has_access = peer is not None
+        has_access = peer is not None and peer["enabled"]
 
     if has_access:
         await query.message.reply_text(
@@ -850,7 +850,7 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         has_access = len(devices) > 0
     else:  # vless
         peer = storage.get_vless_peer_by_telegram_id(user.id)
-        has_access = peer is not None
+        has_access = peer is not None and peer["enabled"]
 
     if has_access:
         await update.message.reply_text(
