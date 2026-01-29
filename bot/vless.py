@@ -91,10 +91,14 @@ def _reload_xray() -> None:
         )
 
         if result.returncode != 0:
-            raise VLESSError(f"Xray config validation failed: {result.stderr}")
+            error_output = result.stderr or result.stdout
+            raise VLESSError(
+                f"Xray config validation failed:\n{error_output}\n"
+                f"Return code: {result.returncode}"
+            )
 
         # Restart service (Xray doesn't support reload)
-        subprocess.run(
+        restart_result = subprocess.run(
             ["systemctl", "restart", XRAY_SERVICE],
             check=True,
             capture_output=True,
@@ -103,7 +107,11 @@ def _reload_xray() -> None:
     except subprocess.TimeoutExpired:
         raise VLESSError("Xray restart timeout")
     except subprocess.CalledProcessError as e:
-        raise VLESSError(f"Failed to restart Xray: {e.stderr}")
+        error_output = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
+        raise VLESSError(f"Failed to restart Xray: {error_output}")
+    except VLESSError:
+        # Re-raise VLESSError as is
+        raise
     except Exception as e:
         raise VLESSError(f"Xray restart error: {e}")
 
