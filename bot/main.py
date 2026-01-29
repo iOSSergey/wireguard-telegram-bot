@@ -11,6 +11,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from bot import storage, wg
 from bot.provision import get_or_create_peer_and_config, ProvisionError
+from bot.vless_provision import get_or_create_vless_config, VLESSProvisionError
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -402,44 +403,71 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     name = user.full_name or user.username or "client"
 
-    devices = storage.get_peers_by_telegram_id(user.id)
+    # Check protocol policy to determine which config to generate
+    policy = storage.get_protocol_policy()
+    primary = policy['primary_protocol']
 
-    if devices:
+    # Check if user already has access
+    if primary == 'wireguard':
+        devices = storage.get_peers_by_telegram_id(user.id)
+        has_access = len(devices) > 0
+    else:  # vless
+        peer = storage.get_vless_peer_by_telegram_id(user.id)
+        has_access = peer is not None
+
+    if has_access:
         await query.message.reply_text(
             "ℹ️ У вас уже есть активный VPN-доступ.\n\n"
             "Отправляю текущую конфигурацию 👇"
         )
-    else:
-        if len(devices) >= MAX_DEVICES_PER_USER:
-            await query.message.reply_text(
-                "❗ Достигнут лимит устройств.\n"
-                "Удалите текущее устройство, чтобы добавить новое."
-            )
-            return
 
+    # Generate config based on primary protocol
     try:
-        config = get_or_create_peer_and_config(
-            telegram_id=user.id,
-            name=name,
-            ttl_days=30,
-        )
-    except ProvisionError as e:
+        if primary == 'wireguard':
+            config = get_or_create_peer_and_config(
+                telegram_id=user.id,
+                name=name,
+                ttl_days=30,
+            )
+
+            # Send as .conf file
+            filename = f"{safe_filename(BOT_NAME)}.conf"
+            await query.message.reply_document(
+                document=config.encode(),
+                filename=filename,
+                caption="✅ Ваш конфигурационный файл WireGuard.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📡 Как установить",
+                                          callback_data="how_install")],
+                    [InlineKeyboardButton("🏠 Главное меню",
+                                          callback_data="back_to_main")],
+                ]),
+            )
+        else:  # vless
+            vless_link = get_or_create_vless_config(
+                telegram_id=user.id,
+                name=name,
+                ttl_days=30,
+            )
+
+            # Send as text with vless:// link
+            caption = (
+                "✅ Ваша конфигурация VLESS Reality\n\n"
+                "Скопируйте ссылку ниже и добавьте в клиент VPN:"
+            )
+            await query.message.reply_text(
+                f"{caption}\n\n<code>{vless_link}</code>",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📡 Как установить",
+                                          callback_data="how_install")],
+                    [InlineKeyboardButton("🏠 Главное меню",
+                                          callback_data="back_to_main")],
+                ]),
+            )
+    except (ProvisionError, VLESSProvisionError) as e:
         await query.message.reply_text(f"❌ Доступ недоступен:\n{e}")
         return
-
-    filename = f"{safe_filename(BOT_NAME)}.conf"
-
-    await query.message.reply_document(
-        document=config.encode(),
-        filename=filename,
-        caption="✅ Ваш конфигурационный файл WireGuard.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📡 Как установить",
-                                  callback_data="how_install")],
-            [InlineKeyboardButton("🏠 Главное меню",
-                                  callback_data="back_to_main")],
-        ]),
-    )
 
 
 async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -771,36 +799,71 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     name = user.full_name or user.username or "client"
 
-    devices = storage.get_peers_by_telegram_id(user.id)
-    if devices:
+    # Check protocol policy to determine which config to generate
+    policy = storage.get_protocol_policy()
+    primary = policy['primary_protocol']
+
+    # Check if user already has access
+    if primary == 'wireguard':
+        devices = storage.get_peers_by_telegram_id(user.id)
+        has_access = len(devices) > 0
+    else:  # vless
+        peer = storage.get_vless_peer_by_telegram_id(user.id)
+        has_access = peer is not None
+
+    if has_access:
         await update.message.reply_text(
             "ℹ️ У вас уже есть активный VPN-доступ.\n"
             "Отправляю текущую конфигурацию 👇"
         )
 
+    # Generate config based on primary protocol
     try:
-        config = get_or_create_peer_and_config(
-            telegram_id=user.id,
-            name=name,
-            ttl_days=30,
-        )
-    except ProvisionError as e:
+        if primary == 'wireguard':
+            config = get_or_create_peer_and_config(
+                telegram_id=user.id,
+                name=name,
+                ttl_days=30,
+            )
+
+            # Send as .conf file
+            filename = f"{safe_filename(BOT_NAME)}.conf"
+            await update.message.reply_document(
+                document=config.encode(),
+                filename=filename,
+                caption="✅ Ваш конфигурационный файл WireGuard.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📡 Как установить",
+                                          callback_data="how_install")],
+                    [InlineKeyboardButton("🏠 Главное меню",
+                                          callback_data="back_to_main")],
+                ]),
+            )
+        else:  # vless
+            vless_link = get_or_create_vless_config(
+                telegram_id=user.id,
+                name=name,
+                ttl_days=30,
+            )
+
+            # Send as text with vless:// link
+            caption = (
+                "✅ Ваша конфигурация VLESS Reality\n\n"
+                "Скопируйте ссылку ниже и добавьте в клиент VPN:"
+            )
+            await update.message.reply_text(
+                f"{caption}\n\n<code>{vless_link}</code>",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📡 Как установить",
+                                          callback_data="how_install")],
+                    [InlineKeyboardButton("🏠 Главное меню",
+                                          callback_data="back_to_main")],
+                ]),
+            )
+    except (ProvisionError, VLESSProvisionError) as e:
         await update.message.reply_text(f"❌ Доступ недоступен:\n{e}")
         return
-
-    filename = f"{safe_filename(BOT_NAME)}.conf"
-
-    await update.message.reply_document(
-        document=config.encode(),
-        filename=filename,
-        caption="✅ Ваш конфигурационный файл WireGuard.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📡 Как установить",
-                                  callback_data="how_install")],
-            [InlineKeyboardButton("🏠 Главное меню",
-                                  callback_data="back_to_main")],
-        ]),
-    )
 
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
