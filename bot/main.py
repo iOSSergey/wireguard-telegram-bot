@@ -48,10 +48,10 @@ def is_admin(user_id: int) -> bool:
 def restore_peers_on_startup():
     storage.init_db()
     now_ts = int(time.time())
-    
+
     # Get protocol policy to decide what to restore
     policy = storage.get_protocol_policy()
-    
+
     # Restore WireGuard peers if enabled
     if policy["wireguard_enabled"]:
         peers = storage.get_peers_for_restore(now_ts)
@@ -71,7 +71,7 @@ def restore_peers_on_startup():
             logger.info("Restored %d WireGuard peers", restored)
         else:
             logger.info("No WireGuard peers to restore")
-    
+
     # Restore VLESS peers if enabled
     if policy["vless_enabled"]:
         vless_peers = storage.get_vless_peers_for_restore(now_ts)
@@ -96,15 +96,16 @@ def restore_peers_on_startup():
 async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
     """Periodic job to disable expired peers"""
     now_ts = int(time.time())
-    
+
     # Get protocol policy to decide what to check
     policy = storage.get_protocol_policy()
-    
+
     # Expire WireGuard peers if enabled
     if policy["wireguard_enabled"]:
         peers = storage.get_expired_peers(now_ts)
         if peers:
-            logger.info("Found %d expired WireGuard peer(s) to disable", len(peers))
+            logger.info(
+                "Found %d expired WireGuard peer(s) to disable", len(peers))
             for peer in peers:
                 try:
                     wg.disable_peer(peer["public_key"])
@@ -118,12 +119,13 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
                         peer["ip"],
                         e,
                     )
-    
+
     # Expire VLESS peers if enabled
     if policy["vless_enabled"]:
         vless_peers = storage.get_expired_vless_peers(now_ts)
         if vless_peers:
-            logger.info("Found %d expired VLESS client(s) to disable", len(vless_peers))
+            logger.info(
+                "Found %d expired VLESS client(s) to disable", len(vless_peers))
             for peer in vless_peers:
                 try:
                     vless.disable_client(peer["uuid"])
