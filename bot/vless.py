@@ -107,7 +107,8 @@ def _reload_xray() -> None:
     except subprocess.TimeoutExpired:
         raise VLESSError("Xray restart timeout")
     except subprocess.CalledProcessError as e:
-        error_output = e.stderr.decode() if isinstance(e.stderr, bytes) else str(e.stderr)
+        error_output = e.stderr.decode() if isinstance(
+            e.stderr, bytes) else str(e.stderr)
         raise VLESSError(f"Failed to restart Xray: {error_output}")
     except VLESSError:
         # Re-raise VLESSError as is
@@ -131,17 +132,21 @@ def enable_client(uuid: str, email: str = None) -> None:
     if not inbound:
         raise VLESSError("VLESS Reality inbound not found in Xray config")
 
-    # Check if client already exists
+    # Prepare email
+    client_email = email or f"user_{uuid[:8]}"
+
+    # Check if client already exists (by UUID or email)
     clients = inbound.get("settings", {}).get("clients", [])
-    if any(c.get("id") == uuid for c in clients):
-        # Client already exists, do nothing
-        return
+    for c in clients:
+        if c.get("id") == uuid or c.get("email") == client_email:
+            # Client already exists, do nothing
+            return
 
     # Add new client
     new_client = {
         "id": uuid,
         "flow": "xtls-rprx-vision",
-        "email": email or f"user_{uuid[:8]}"
+        "email": client_email
     }
     clients.append(new_client)
 
