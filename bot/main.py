@@ -128,8 +128,9 @@ async def expire_peers_job(context: ContextTypes.DEFAULT_TYPE):
                 "Found %d expired VLESS client(s) to disable", len(vless_peers))
             for peer in vless_peers:
                 try:
-                    vless.disable_client(peer["uuid"])
+                    # First update DB, then remove from Xray
                     storage.set_vless_enabled(peer["telegram_id"], False)
+                    vless.disable_client(peer["uuid"])
                     logger.info("Disabled expired VLESS client: %s (%s)",
                                 peer["uuid"], peer["name"])
                 except vless.VLESSError as e:
