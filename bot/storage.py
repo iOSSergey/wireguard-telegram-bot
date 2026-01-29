@@ -362,23 +362,74 @@ def get_expired_vless_peers(now_ts: int) -> list[sqlite3.Row]:
 
 # ===== Settings Functions =====
 
-def get_vpn_mode() -> str:
-    """Get current VPN mode: wireguard, vless, or hybrid. Default is wireguard."""
+def get_protocol_policy() -> dict:
+    """
+    Get current protocol policy.
+
+    Returns:
+        dict with keys:
+            - wireguard_enabled: bool
+            - vless_enabled: bool
+            - primary_protocol: 'wireguard' or 'vless'
+
+    Default: WireGuard enabled and primary, VLESS disabled
+    """
     conn = get_db()
     cur = conn.execute(
-        "SELECT value FROM settings WHERE key = 'vpn_mode'",
+        "SELECT value FROM settings WHERE key = 'protocol_policy'",
     )
     row = cur.fetchone()
     conn.close()
-    return row['value'] if row else 'wireguard'
+
+    if row:
+        import json
+        return json.loads(row['value'])
+
+    # Default policy
+    return {
+        'wireguard_enabled': True,
+        'vless_enabled': False,
+        'primary_protocol': 'wireguard'
+    }
 
 
-def set_vpn_mode(mode: str):
-    """Set VPN mode: wireguard, vless, or hybrid"""
+def set_protocol_policy(wireguard_enabled: bool, vless_enabled: bool, primary_protocol: str):
+    """
+    Set protocol policy with validation.
+
+    Args:
+        wireguard_enabled: Enable WireGuard protocol
+        vless_enabled: Enable VLESS protocol
+        primary_protocol: Primary protocol ('wireguard' or 'vless')
+
+    Raises:
+        ValueError: If policy is invalid
+    """
+    # Validate policy
+    if not wireguard_enabled and not vless_enabled:
+        raise ValueError("At least one protocol must be enabled")
+
+    if primary_protocol not in ['wireguard', 'vless']:
+        raise ValueError("Primary protocol must be 'wireguard' or 'vless'")
+
+    if primary_protocol == 'wireguard' and not wireguard_enabled:
+        raise ValueError("Primary protocol must be enabled")
+
+    if primary_protocol == 'vless' and not vless_enabled:
+        raise ValueError("Primary protocol must be enabled")
+
+    # Save policy as JSON
+    import json
+    policy = {
+        'wireguard_enabled': wireguard_enabled,
+        'vless_enabled': vless_enabled,
+        'primary_protocol': primary_protocol
+    }
+
     conn = get_db()
     conn.execute(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES ('vpn_mode', ?)",
-        (mode,)
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('protocol_policy', ?)",
+        (json.dumps(policy),)
     )
     conn.commit()
     conn.close()
