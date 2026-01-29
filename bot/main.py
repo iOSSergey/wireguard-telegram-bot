@@ -516,8 +516,7 @@ async def on_promo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎟 <b>Введите промокод</b>\n\n"
         "Промокод имеет формат: XX-XXXX-XXD\n"
         "Например: AB-JULY-30D\n\n"
-        "Отправьте промокод следующим сообщением.\n"
-        "Нажмите /cancel, чтобы отменить ввод.",
+        "Отправьте промокод следующим сообщением или нажмите /cancel, чтобы отменить.",
         parse_mode="HTML"
     )
 
@@ -584,7 +583,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Неверный формат промокода.\n\n"
             "Промокод должен иметь формат: XX-XXXX-XXD\n"
             "Например: AB-JULY-30D\n\n"
-            "Отправьте промокод следующим сообщением."
+            "Отправьте промокод следующим сообщением или нажмите /cancel, чтобы отменить."
         )
         return
 
