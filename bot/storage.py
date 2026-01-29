@@ -41,6 +41,25 @@ def init_db():
             activated_by INTEGER
         )
     """)
+    # VLESS peers table - separate from WireGuard peers
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS vless_peers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id INTEGER UNIQUE NOT NULL,
+            name TEXT,
+            uuid TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER,
+            enabled INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+    # Settings table for VPN mode (wireguard/vless/hybrid)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -248,3 +267,118 @@ def get_promo_stats():
 
     conn.close()
     return stats, recent
+
+
+# ===== VLESS Peers Functions =====
+
+def create_vless_peer(telegram_id: int, name: str, uuid: str, expires_at: int = None):
+    """Create new VLESS peer"""
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO vless_peers (telegram_id, name, uuid, created_at, expires_at, enabled)
+        VALUES (?, ?, ?, ?, ?, 1)
+        """,
+        (telegram_id, name, uuid, int(time.time()), expires_at)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_vless_peer_by_telegram_id(telegram_id: int) -> Optional[sqlite3.Row]:
+    """Get VLESS peer by telegram ID"""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT * FROM vless_peers WHERE telegram_id = ?",
+        (telegram_id,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row
+
+
+def delete_vless_peer(telegram_id: int):
+    """Delete VLESS peer by telegram ID"""
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM vless_peers WHERE telegram_id = ?",
+        (telegram_id,)
+    )
+    conn.commit()
+    conn.close()
+
+
+def update_vless_expiry(telegram_id: int, expires_at: int):
+    """Update VLESS peer expiration date"""
+    conn = get_db()
+    conn.execute(
+        "UPDATE vless_peers SET expires_at = ? WHERE telegram_id = ?",
+        (expires_at, telegram_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_vless_enabled(telegram_id: int, enabled: bool):
+    """Enable or disable VLESS peer"""
+    conn = get_db()
+    conn.execute(
+        "UPDATE vless_peers SET enabled = ? WHERE telegram_id = ?",
+        (1 if enabled else 0, telegram_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_vless_peers_for_restore(now_ts: int) -> list[sqlite3.Row]:
+    """Get all VLESS peers that should be enabled (not expired)"""
+    conn = get_db()
+    cur = conn.execute(
+        """
+        SELECT * FROM vless_peers 
+        WHERE enabled = 1 AND (expires_at IS NULL OR expires_at > ?)
+        """,
+        (now_ts,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def get_expired_vless_peers(now_ts: int) -> list[sqlite3.Row]:
+    """Get all expired VLESS peers that are still enabled"""
+    conn = get_db()
+    cur = conn.execute(
+        """
+        SELECT * FROM vless_peers 
+        WHERE enabled = 1 AND expires_at IS NOT NULL AND expires_at <= ?
+        """,
+        (now_ts,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+# ===== Settings Functions =====
+
+def get_vpn_mode() -> str:
+    """Get current VPN mode: wireguard, vless, or hybrid. Default is wireguard."""
+    conn = get_db()
+    cur = conn.execute(
+        "SELECT value FROM settings WHERE key = 'vpn_mode'",
+    )
+    row = cur.fetchone()
+    conn.close()
+    return row['value'] if row else 'wireguard'
+
+
+def set_vpn_mode(mode: str):
+    """Set VPN mode: wireguard, vless, or hybrid"""
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('vpn_mode', ?)",
+        (mode,)
+    )
+    conn.commit()
+    conn.close()
