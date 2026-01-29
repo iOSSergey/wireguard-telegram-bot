@@ -423,12 +423,32 @@ async def on_get_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             # Send as text with vless:// link
-            caption = (
+            instruction = (
                 "✅ Ваша конфигурация VLESS Reality\n\n"
-                "Скопируйте ссылку ниже и добавьте в клиент VPN:"
+                "<b>Инструкция:</b>\n"
+                "Копируйте 👆ссылку (ключ)👆, заходите в приложение для Вашего устройства (ссылки для установки ниже), "
+                "сверху справа нажимайте «+», выбирайте строку «вставить из буфера», устанавливайте и пробуйте подключиться\n\n"
+                "<b>Установите приложение для Вашего устройства:</b>\n\n"
+                "🍏 <b>iOS:</b>\n"
+                "• Streisand (Рекомендуем)\n"
+                "• v2box\n"
+                "• foxray\n"
+                "• v2Raytun\n\n"
+                "🤖 <b>Android:</b>\n"
+                "• v2box - v2ray client (Рекомендуем)\n"
+                "• v2rayNG\n\n"
+                "🍏 <b>macOS:</b>\n"
+                "• v2box - v2ray client (Рекомендуем)\n"
+                "• Hiddify-next\n\n"
+                "💠 <b>Windows:</b>\n"
+                "• Hiddify-next\n"
+                "• PORTABLE\n\n"
+                "🐧 <b>Linux:</b>\n"
+                "• NekoRay\n"
+                "• Clash"
             )
             await query.message.reply_text(
-                f"{caption}\n\n<code>{vless_link}</code>",
+                f"<code>{vless_link}</code>\n\n{instruction}",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("📡 Как установить",
@@ -877,12 +897,32 @@ async def cmd_vpn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             # Send as text with vless:// link
-            caption = (
+            instruction = (
                 "✅ Ваша конфигурация VLESS Reality\n\n"
-                "Скопируйте ссылку ниже и добавьте в клиент VPN:"
+                "<b>Инструкция:</b>\n"
+                "Копируйте 👆ссылку (ключ)👆, заходите в приложение для Вашего устройства (ссылки для установки ниже), "
+                "сверху справа нажимайте «+», выбирайте строку «вставить из буфера», устанавливайте и пробуйте подключиться\n\n"
+                "<b>Установите приложение для Вашего устройства:</b>\n\n"
+                "🍏 <b>iOS:</b>\n"
+                "• Streisand (Рекомендуем)\n"
+                "• v2box\n"
+                "• foxray\n"
+                "• v2Raytun\n\n"
+                "🤖 <b>Android:</b>\n"
+                "• v2box - v2ray client (Рекомендуем)\n"
+                "• v2rayNG\n\n"
+                "🍏 <b>macOS:</b>\n"
+                "• v2box - v2ray client (Рекомендуем)\n"
+                "• Hiddify-next\n\n"
+                "💠 <b>Windows:</b>\n"
+                "• Hiddify-next\n"
+                "• PORTABLE\n\n"
+                "🐧 <b>Linux:</b>\n"
+                "• NekoRay\n"
+                "• Clash"
             )
             await update.message.reply_text(
-                f"{caption}\n\n<code>{vless_link}</code>",
+                f"<code>{vless_link}</code>\n\n{instruction}",
                 parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("📡 Как установить",
