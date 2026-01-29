@@ -538,8 +538,7 @@ async def on_check_access(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "ℹ️ Статус доступа\n\n"
         f"{status}\n"
         f"{expires_text}\n"
-        f"🌐 IP: {peer['ip']}\n"
-        f"🆔 Telegram ID: <code>{query.from_user.id}</code>"
+        f"🔑 ID клиента: <code>{query.from_user.id}</code>"
     )
 
     kb = InlineKeyboardMarkup([
