@@ -688,8 +688,16 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name or update.effective_user.username or "client"
 
-    # Get current user
-    peer = storage.get_peer_by_telegram_id(user_id)
+    # Check protocol policy to determine which peer to extend
+    policy = storage.get_protocol_policy()
+    primary = policy['primary_protocol']
+
+    if primary == 'wireguard':
+        # Get WireGuard peer
+        peer = storage.get_peer_by_telegram_id(user_id)
+    else:  # vless
+        # Get VLESS peer
+        peer = storage.get_vless_peer_by_telegram_id(user_id)
 
     if peer:
         # Update expiration date
@@ -698,17 +706,32 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if current_expires < int(time.time()):
             current_expires = int(time.time())
         new_expires = current_expires + (days * 24 * 60 * 60)
-        storage.update_expiry(user_id, new_expires)
-
-        # Enable peer in WireGuard if it was disabled
-        if not peer['enabled']:
-            try:
-                wg.enable_peer(peer['public_key'], peer['ip'])
-                storage.set_enabled(user_id, True)
-                logger.info(
-                    f"Re-enabled peer for user {user_id} after promo activation")
-            except wg.WireGuardError as e:
-                logger.error(f"Failed to enable peer for user {user_id}: {e}")
+        
+        if primary == 'wireguard':
+            storage.update_expiry(user_id, new_expires)
+            
+            # Enable peer in WireGuard if it was disabled
+            if not peer['enabled']:
+                try:
+                    wg.enable_peer(peer['public_key'], peer['ip'])
+                    storage.set_enabled(user_id, True)
+                    logger.info(
+                        f"Re-enabled WireGuard peer for user {user_id} after promo activation")
+                except wg.WireGuardError as e:
+                    logger.error(f"Failed to enable WireGuard peer for user {user_id}: {e}")
+        else:  # vless
+            storage.update_vless_expiry(user_id, new_expires)
+            
+            # Enable peer in Xray if it was disabled
+            if not peer['enabled']:
+                try:
+                    email = f"tg_{user_id}"
+                    vless.enable_client(peer['uuid'], email)
+                    storage.set_vless_enabled(user_id, True)
+                    logger.info(
+                        f"Re-enabled VLESS client for user {user_id} after promo activation")
+                except vless.VLESSError as e:
+                    logger.error(f"Failed to enable VLESS client for user {user_id}: {e}")
 
         expires_date = datetime.fromtimestamp(
             new_expires).strftime('%d.%m.%Y %H:%M')
@@ -726,11 +749,20 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         # Create new peer with expiration
         expires_at = int(time.time()) + (days * 24 * 60 * 60)
+        expires_date = datetime.fromtimestamp(expires_at).strftime('%d.%m.%Y %H:%M')
+        
         try:
-            config_path = get_or_create_peer_and_config(
-                user_id, user_name, expires_at)
-            expires_date = datetime.fromtimestamp(
-                expires_at).strftime('%d.%m.%Y %H:%M')
+            if primary == 'wireguard':
+                config_path = get_or_create_peer_and_config(
+                    user_id, user_name, expires_at)
+                logger.info(
+                    f"Created new WireGuard peer for user {user_id} with {days} days access")
+            else:  # vless
+                vless_link = get_or_create_vless_config(
+                    user_id, user_name, ttl_days=days)
+                logger.info(
+                    f"Created new VLESS client for user {user_id} with {days} days access")
+            
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(
                     "🏠 Главное меню", callback_data="back_to_main")],
@@ -742,9 +774,7 @@ async def handle_promo_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML",
                 reply_markup=kb
             )
-            logger.info(
-                f"Created new peer for user {user_id} with {days} days access")
-        except ProvisionError as e:
+        except (ProvisionError, VLESSProvisionError) as e:
             await update.message.reply_text(
                 f"❌ Ошибка при создании конфигурации: {e}"
             )
