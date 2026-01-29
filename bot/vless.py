@@ -135,20 +135,26 @@ def enable_client(uuid: str, email: str = None) -> None:
     # Prepare email
     client_email = email or f"user_{uuid[:8]}"
 
+    # Ensure settings and clients exist
+    if "settings" not in inbound:
+        inbound["settings"] = {}
+    if "clients" not in inbound["settings"]:
+        inbound["settings"]["clients"] = []
+
     # Check if client already exists (by UUID or email)
-    clients = inbound.get("settings", {}).get("clients", [])
+    clients = inbound["settings"]["clients"]
     for c in clients:
         if c.get("id") == uuid or c.get("email") == client_email:
             # Client already exists, do nothing
             return
 
-    # Add new client
+    # Add new client directly to the inbound settings
     new_client = {
         "id": uuid,
         "flow": "xtls-rprx-vision",
         "email": client_email
     }
-    clients.append(new_client)
+    inbound["settings"]["clients"].append(new_client)
 
     # Save configuration
     _save_config(config)
