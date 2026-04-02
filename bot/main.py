@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import TimedOut as TelegramTimedOut
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 from bot import storage, wg, vless
@@ -960,6 +961,13 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🛠 Администрирование", reply_markup=kb)
 
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if isinstance(context.error, TelegramTimedOut):
+        logger.warning("Telegram request timed out, will retry")
+        return
+    logger.error("Unhandled exception", exc_info=context.error)
+
+
 def main():
     # Build application with job queue enabled
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -1008,6 +1016,7 @@ def main():
     app.add_handler(CallbackQueryHandler(on_faq, pattern="^faq$"))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_promo_code))
+    app.add_error_handler(error_handler)
     app.run_polling()
 
 
