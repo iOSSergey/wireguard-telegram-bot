@@ -1017,7 +1017,15 @@ def main():
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_promo_code))
     app.add_error_handler(error_handler)
-    app.run_polling()
+
+    for attempt in range(1, 11):
+        try:
+            app.run_polling()
+            break
+        except TelegramTimedOut:
+            wait = min(5 * attempt, 60)
+            logger.warning("Startup timed out (attempt %d/10), retrying in %ds...", attempt, wait)
+            time.sleep(wait)
 
 
 if __name__ == '__main__':
